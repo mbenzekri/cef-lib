@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/mbenzekri/ceflib/issues"
   },
-  "homepage": "https://github.com/mbenzekri/ceflib#readme"
+  "homepage": "https://github.com/mbenzekri/ceflib#readme",
+  "dependencies": {
+    "uuid": "^3.3.2"
+  }
 }

@@ -1,3 +1,7 @@
-import {StepDecl, StepDef} from './src/Step';
+import {
+    Declaration, Batch, Port, Pipe, Step,
+} from './src/step';
 
-export { StepDecl, StepDef };
+export {
+    Declaration, Batch, Port, Pipe, Step,
+};
