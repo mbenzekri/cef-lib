@@ -45,13 +45,14 @@ class Declaration {
  */
 class Batch {
     constructor(cebjson) {
-        const batch = cebjson;
+        this.batch = cebjson;
         this.steps = {};
         this.globals = {};
     }
 
     /**
      * method to add a step to this batch
+     * @param {Step} step: a step to add to this batch
      */
     add(step) {
         this.steps.push(step);
@@ -94,7 +95,21 @@ const PipeState = {
     ended: 'ended',
 };
 
+/**
+ * class representing link between two ports during execution phase
+ * data flow through pipes from outport to in port
+ * @property {Port} outport: port from which data is outputed
+ * @property {Port} inport: port from which data is inputed
+ * @property {Filter} filter: filtering object
+ * @property {PipeState} state: execution state of the pipe (idle, started, ended)
+ */
 class Pipe {
+    /**
+     * Pipe constructor
+     * @param {*} outport: port from which data is outputed
+     * @param {*} inport: port from which data is outputed
+     * @param {*} filter: filtering object to filter flowing data
+     */
     constructor(outport, inport, filter) {
         this.outport = outport;
         this.inport = inport;
@@ -102,16 +117,26 @@ class Pipe {
         this.state = PipeState.idle;
     }
 
+    /**
+     * flow data through this pipe
+     * @param {object} feature: send feature from this.outport to this.inport
+     */
     send(feature) {
         if (this.state === PipeState.idle) this.start();
         if (!this.filter || this.filter(feature)) this.inport.input(this.toport, feature);
     }
 
+    /**
+     * initialise pipe flow
+     */
     start() {
         this.state = PipeState.started;
         this.inport.pipeStarted(this);
     }
 
+    /**
+     * terminate pipe flow
+     */
     end() {
         this.state = PipeState.started;
         this.inport.pipeEnded(this);
@@ -156,7 +181,7 @@ class Step {
         // prepare lazy evaluation of parameters for each feature
         const paramsfn = Object.keys(params).reduce((cur, prev) => {
             let body;
-            switch (this.decl.paramters[cur].type) {
+            switch (this.decl.parameters[cur].type) {
                 case 'int': body = `return parseInt(\`${params[cur]}\`,10)`;
                     break;
                 case 'number': body = `return parseFloat(\`${params[cur]}\`)`;
@@ -164,6 +189,10 @@ class Step {
                 case 'boolean': body = `return (\`${params[cur]}\` === 'true')`;
                     break;
                 case 'date': body = `return new Date(\`${params[cur]}\`)`;
+                    break;
+                case 'regexp': body = `return new RegExp(\`${params[cur]}\`)`;
+                    break;
+                case 'string[]': body = `return (\`${params[cur]}\`).split(/,/)`;
                     break;
                 default: body = `return \`${params[cur]}\``;
             }
