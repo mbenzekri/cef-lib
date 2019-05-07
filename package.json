@@ -1,5 +1,5 @@
 {
-  "name": "ceflib",
+  "name": "cef-lib",
   "version": "1.0.0",
   "description": "cloud engine factory library to develop user steps",
   "main": "index.js",
@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mbenzekri/ceflib.git"
+    "url": "git+https://github.com/mbenzekri/cef-lib.git"
   },
   "author": "Mohamed Ben Zekri",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/mbenzekri/ceflib/issues"
+    "url": "https://github.com/mbenzekri/cef-lib/issues"
   },
-  "homepage": "https://github.com/mbenzekri/ceflib#readme",
+  "homepage": "https://github.com/mbenzekri/cef-lib#readme",
   "dependencies": {
     "@types/node": "^12.0.0",
     "uuid": "^3.3.2"
