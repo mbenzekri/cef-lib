@@ -1,0 +1,430 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const v4_1 = require("uuid/v4");
+const path = require("path");
+function isfunc(f) {
+    return (typeof f === 'function');
+}
+function error(message) {
+    const e = new Error();
+    const frame = e.stack.split('\n')[2];
+    const line = frame.split(':')[1];
+    const func = frame.split(' ')[5];
+    const script = path.basename(__filename);
+    return new Error(`${func}()@${script}:${line} ${message}`);
+}
+function bodyfunc(type, strvalue) {
+    let body = `return \`${strvalue}\``;
+    switch (type) {
+        case BaseType.int:
+            body = `return parseInt(\`${strvalue}\`,10)`;
+            break;
+        case BaseType.ints:
+            body = `return (\`${strvalue}\`).split(/,/).map(v => parseInt(v,10))`;
+            break;
+        case BaseType.number:
+            body = `return parseFloat(\`${strvalue}\`)`;
+            break;
+        case BaseType.numbers:
+            body = `return (\`${strvalue}\`).split(/,/).map(v => parseFloat(v))`;
+            break;
+        case BaseType.boolean:
+            body = `return \`${strvalue ? true : false}\` === 'true' `;
+            break;
+        case BaseType.date:
+            body = `return new Date(\`${strvalue}\`)`;
+            break;
+        case BaseType.dates:
+            body = `return (\`${strvalue}\`).split(/,/).map(v => new Date(v))`;
+            break;
+        case BaseType.regexp:
+            body = `return new RegExp(\`${strvalue}\`)`;
+            break;
+        case BaseType.string:
+            body = `return \`${strvalue}\``;
+            break;
+        case BaseType.strings:
+            body = `return (\`${strvalue}\`).split(/,/)`;
+            break;
+    }
+    return body;
+}
+function argfunc(type, strvalue) {
+    return new Function(bodyfunc(type, strvalue));
+}
+function globfunc(type, strvalue) {
+    return new Function('args', 'globals', bodyfunc(type, strvalue));
+}
+function paramfunc(type, strvalue) {
+    return new Function('args', 'globals', 'feature', bodyfunc(type, strvalue));
+}
+const SOF = {};
+const EOF = {};
+// steps repository déclaration
+const DECLARATIONS = {};
+var PortType;
+(function (PortType) {
+    PortType[PortType["input"] = 0] = "input";
+    PortType[PortType["output"] = 1] = "output";
+})(PortType || (PortType = {}));
+var State;
+(function (State) {
+    State[State["idle"] = 0] = "idle";
+    State[State["started"] = 1] = "started";
+    State[State["ended"] = 2] = "ended";
+})(State || (State = {}));
+var BaseType;
+(function (BaseType) {
+    BaseType[BaseType["int"] = 0] = "int";
+    BaseType[BaseType["ints"] = 1] = "ints";
+    BaseType[BaseType["number"] = 2] = "number";
+    BaseType[BaseType["numbers"] = 3] = "numbers";
+    BaseType[BaseType["boolean"] = 4] = "boolean";
+    BaseType[BaseType["date"] = 5] = "date";
+    BaseType[BaseType["dates"] = 6] = "dates";
+    BaseType[BaseType["regexp"] = 7] = "regexp";
+    BaseType[BaseType["string"] = 8] = "string";
+    BaseType[BaseType["strings"] = 9] = "strings";
+})(BaseType || (BaseType = {}));
+/**
+ * class for step declaration
+ * use this class to declare a new kind of step for the cloud engine factory
+ * @member declobj declaration
+ */
+class Declaration {
+    // create a Declaration object from declaration options
+    constructor(declobj) {
+        this.declobj = declobj;
+        DECLARATIONS[this.gitid] = this;
+    }
+    // get step id (universal through / github )
+    get gitid() { return this.declobj.gitid; }
+    // get step name
+    get name() { return this.declobj.gitid.split(/@/)[0]; }
+    // get github repo
+    get repository() { return this.declobj.gitid.split(/@/)[1]; }
+    // get step title
+    get title() { return this.declobj.title; }
+    // get step description
+    get desc() { return this.declobj.desc; }
+    // get step fields description (ngx-formly fields)
+    get fields() { return this.declobj.fields; }
+    // get step inputs
+    get inputs() { return this.declobj.inputs; }
+    // get step outputs
+    get outputs() { return this.declobj.outputs; }
+    // get step parameters
+    get parameters() { return this.declobj.parameters; }
+}
+exports.Declaration = Declaration;
+/**
+ * class defining a batch to run in cloud engine factory
+ * @member batch the js plain object description
+ * @member steps all the steps of this batch
+ * @member globals globals variables for this batch
+ * @member argv collected arguments from either process.argv or env variables
+ */
+class Batch {
+    constructor(flowchart) {
+        this._steps = new Map();
+        this._starts = [];
+        this._feature = {};
+        this._globals = {};
+        this._args = {};
+        this._flowchart = flowchart;
+        this.initargs();
+        this.initglobs();
+        Object.freeze(this);
+    }
+    get batch() { return this._flowchart; }
+    get steps() { return this._steps; }
+    get feature() { return this._feature; }
+    get globals() { return this._globals; }
+    get args() { return this._args; }
+    initargs() {
+        const argv = {};
+        // default value in batch declaration
+        Object.keys(this._flowchart.args).forEach(name => {
+            argv[name] = argfunc(this._flowchart.args[name].type, this._flowchart.args[name].value);
+        });
+        // then env variables
+        Object.keys(this._flowchart.args).forEach(name => {
+            if (name in process.env) {
+                argv[name] = argfunc(this._flowchart.args[name].type, process.env[name]);
+            }
+        });
+        // then process parameters
+        process.argv.forEach((arg, i) => {
+            if (i < 2)
+                return; // skip 'node.exe' and 'script.js'
+            const [name, value] = arg.replace(/^--?/, '').split(/=/);
+            if (name in this._flowchart.args) {
+                this._args[name] = argfunc(this._flowchart.args[name].type, value);
+            }
+        });
+        this._args = new Proxy(Object.freeze(argv), {
+            get: (target, property) => {
+                try {
+                    return target[property]();
+                }
+                catch (e) {
+                    throw error(`${this}: error "${e.message}" when evaluating arg parameter "${String(property)}"`);
+                }
+            },
+        });
+    }
+    initglobs() {
+        // prepare lazy evaluation of parameters for each feature
+        const globals = {};
+        Object.keys(this._flowchart.globals).forEach(name => {
+            globals[name] = globfunc(this._flowchart.globals[name].type, this._flowchart.globals[name].value);
+        });
+        this._globals = new Proxy(Object.freeze(globals), {
+            get: (target, property) => {
+                try {
+                    return target[property](this._args, this.globals);
+                }
+                catch (e) {
+                    throw error(`${this}: error "${e.message}" when evaluating global parameter "${String(property)}"`);
+                }
+            },
+        });
+    }
+    /**
+     * method to add a step to this batch
+     * @param {Step} step: a step to add to this batch
+     */
+    initsteps() {
+        // construct all steps 
+        this._flowchart.steps.forEach(stepobj => {
+            const module = require(stepobj.gitid.split(/@/)[1]);
+            const name = stepobj.gitid.split(/@/)[0];
+            const step = new module[name](stepobj.params, this);
+            this._steps.set(stepobj.id, step);
+        });
+        // connect all steps 
+        this._flowchart.pipes.forEach(pipeobj => {
+            const step = this._steps.get(pipeobj.from);
+            const target = this._steps.get(pipeobj.to);
+            step.pipe(pipeobj.from, pipeobj.to, target, f => true);
+        });
+        // collect initial steps
+        this.steps.forEach((step, id) => {
+            const ports = Object.keys(step.ports).map(k => step.ports[k]);
+            if (ports.every(port => port.type !== PortType.input))
+                this._starts.push(step);
+        });
+    }
+    run() {
+        // init globals
+        this._globals = {};
+        // start nodes without predecessor
+        this._starts.forEach(step => step.start());
+    }
+}
+exports.Batch = Batch;
+/**
+ * class defining a port either an input port or an output port
+ * port state is first idle
+ * port state is started after receiving SOF (start of flow feature)
+ * port state is ended after receiving EOF (end of flow feature)
+ */
+class Port {
+    constructor(type, name, step) {
+        this.pipes = [];
+        this.state = State.idle;
+        this.type = type;
+        this.name = name;
+        this.step = step;
+    }
+    add(pipe) {
+        this.pipes.push(pipe);
+    }
+    output(feature) {
+        if (this.type !== PortType.output)
+            throw error(`${this}: feature outputed in an input port "${this.name}" `);
+        if (feature === SOF && this.state === State.idle)
+            this.state = State.started;
+        if (feature === EOF && this.pipes.every(p => p.state === State.ended))
+            this.state = State.ended;
+        this.pipes.forEach(p => p.send(feature));
+    }
+    input(feature) {
+        if (this.type !== PortType.input)
+            throw error(`${this}: feature inputed in an output port "${this.name}" `);
+        if (feature === SOF && this.state === State.idle)
+            this.state = State.started;
+        if (feature === EOF && this.pipes.every(p => p.state === State.ended))
+            this.state = State.ended;
+        this.step.input(this.name, feature);
+    }
+}
+/**
+ * class representing link between two ports during execution phase
+ * data flow through pipes from outport to in port
+ * @member outport port from which data is outputed
+ * @member inport: port from which data is inputed
+ * @member filter: filtering object
+ * @member state: execution state of the pipe (idle, started, ended)
+ */
+class Pipe {
+    /**
+     * Pipe constructor
+     * @param outport: port from which data is outputed
+     * @param inport: port from which data is outputed
+     * @param filter: filtering object to filter flowing data
+     */
+    constructor(outport, inport, filter) {
+        this._state = State.idle;
+        this.outport = outport;
+        this.inport = inport;
+        this.filter = filter;
+        this._state = State.idle;
+    }
+    get state() { return this._state; }
+    /**
+     * flow data through this pipe
+     * @param feature send feature from this.outport to this.inport
+     */
+    send(feature) {
+        if (this._state === State.idle)
+            this._state = State.started;
+        if (feature === EOF)
+            return this._state = State.ended;
+        if (!this.filter || this.filter(feature))
+            this.inport.input(feature);
+    }
+}
+/**
+ * @class Step
+ * extend this class to define the behavior of a new kind of step for the cloud batch
+ * this class is used during execution time to process each step
+ * @property id : step id
+ * @property decl : the step declaration
+ * @property batch : the batch containing this step
+ * @property pipes : pipes output of this step
+ * @property ports : input/output ports of this step
+ * @property feature : current feature (available after first input)
+ * @property params : parameters (dynamic see Proxy in constructor)
+ */
+class Step {
+    /**
+     * constructor
+     * @param decl declaration object for the step
+     * @param params parameters expressions for the step
+     * @param batch the batch containing this step
+     */
+    constructor(decl, params, batch) {
+        this.id = v4_1.default();
+        this.pipes = [];
+        this.ports = {};
+        this.binds = {};
+        this.state = State.idle;
+        this.params = {};
+        this.decl = decl;
+        Object.keys(decl.inputs).forEach(name => {
+            this.ports[name] = new Port(PortType.input, name, this);
+        });
+        Object.keys(decl.outputs).forEach(name => {
+            this.ports[name] = new Port(PortType.output, name, this);
+        });
+        const paramsfn = {};
+        Object.keys(params).forEach(name => {
+            paramsfn[name] = paramfunc(this.decl.parameters[name].type, params[name]);
+        });
+        this.params = new Proxy(paramsfn, {
+            get: (target, property) => {
+                try {
+                    return target[property](batch.args, batch.globals, this.feature);
+                }
+                catch (e) {
+                    throw error(`${this}: error "${e.message}" when evaluating step parameter "${String(property)}"`);
+                }
+            },
+        });
+    }
+    /**
+     * the toString() legacy method
+     */
+    toString() { return `[${this.decl.name} / ${this.id}]`; }
+    /**
+     * check for an input port name existance
+     */
+    isinport(port) { return this.ports[port] && this.ports[port].type === PortType.input; }
+    /**
+     * check for an output port name existance
+     */
+    isoutport(port) { return this.ports[port] && this.ports[port].type === PortType.output; }
+    /**
+     * bind an input port name to a callback method that will be called to receive input features
+     * @param {string} inport: the input port name to bind with the method
+     * @param {function} method: a method to call for each inputed feature
+     */
+    bind(inport, method) {
+        if (!this.isinport(inport))
+            throw error(`${this}: unknown input port "${inport}".`);
+        if (!isfunc(method))
+            throw error(`${this}: method argument is not a function "${method}"`);
+        this.binds[inport] = method;
+    }
+    /**
+     * method to connect this step with a data pipe
+     * @param outport name of the output port in this step
+     * @param inport name of the input port in the target step
+     * @param target target step of the pipe (where data flow)
+     * @param filter filter function for flowing data
+     */
+    pipe(outport, inport, target, filter = f => true) {
+        if (!this.ports[outport])
+            throw error(`${this}: unknown output port  "${outport}".`);
+        if (!this.ports[inport])
+            throw error(`${this}: unknown input port  "${inport}".`);
+        const pipe = new Pipe(this.ports[outport], this.ports[inport], filter);
+        this.ports[outport].add(pipe);
+        target.ports[inport].add(pipe);
+    }
+    /**
+     * set typedef for an output port
+     * @param {*} name: output a port name
+     * @param {*} typedef: type definition for features to be outputed
+     */
+    // type(port, typedef) {
+    //     if (this.ports[port]) this.ports[port].type(typedef);
+    // }
+    /**
+     * method to declare output termination throw the corresponding port
+     * @param name: a port name
+     */
+    close(name) {
+        if (this.ports[name])
+            this.ports[name].output(EOF);
+    }
+    /**
+     * method to declare output starting throw the corresponding port
+     * @param name: a port name
+     */
+    open(name) {
+        if (this.ports[name])
+            this.ports[name].output(SOF);
+    }
+    /**
+     * method to output a feature throw the corresponding port
+     * @param {*} port: a port name
+     * @param {*} feature: the feature to output
+     */
+    output(outport, feature) {
+        if (!this.isoutport(outport))
+            throw error(`${this}: unknown output port  "${outport}".`);
+        this.ports[outport].output(feature);
+    }
+    input(inport, feature) {
+        this.feature = feature;
+        if (!this.isinport(inport))
+            throw error(`${this}: unknown input port  "${inport}".`);
+        if (typeof this[`input_${inport}`] !== 'function')
+            throw error(`${this}: method "input_${inport}" not implemented.`);
+        this[`input_${inport}`](feature);
+    }
+}
+exports.Step = Step;
+//# sourceMappingURL=step.js.map
