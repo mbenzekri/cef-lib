@@ -1,6 +1,6 @@
 import {
     Declaration, Batch, Port, Pipe, Step,
-} from './src/step';
+} from './dist/step';
 
 export {
     Declaration, Batch, Port, Pipe, Step,
