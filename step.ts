@@ -432,6 +432,9 @@ abstract class Step {
      */
     isoutport(port) { return this.ports[port] && this.ports[port].type === PortType.output; }
 
+    log(message) {
+
+    }
     /**
      * bind an input port name to a callback method that will be called to receive input features
      * @param {string} inport: the input port name to bind with the method
