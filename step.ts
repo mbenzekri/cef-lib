@@ -175,6 +175,7 @@ class Batch {
         this._flowchart = flowchart
         this.initargs()
         this.initglobs()
+        this.initsteps()
         Object.freeze(this)
     }
     get batch() { return this._flowchart }
@@ -208,7 +209,7 @@ class Batch {
                 this._args[name] = argfunc(type,value);
             }
         })
-        this._args = new Proxy(Object.freeze(argv), {
+        this._args = new Proxy(argv, {
             get: (target, property) => {
                 try {
                     return target[property]();
@@ -229,7 +230,7 @@ class Batch {
             globals[name] = globfunc(type,value);
         });
 
-        this._globals = new Proxy(Object.freeze(globals), {
+        this._globals = new Proxy(globals, {
             get: (target, property) => {
                 try {
                     return target[property](this._args, this.globals);
@@ -268,8 +269,6 @@ class Batch {
     }
 
     run() {
-        // init globals
-        this._globals = {};
         // start nodes without predecessor
         this._starts.forEach(step => step.start())
     }
