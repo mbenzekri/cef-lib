@@ -248,9 +248,11 @@ class Batch {
     private initsteps() {
         // construct all steps 
         this._flowchart.steps.forEach(stepobj => {
-            const module = require(stepobj.gitid.split(/@/)[1])
-            const name = stepobj.gitid.split(/@/)[0]
-            const step = new module[name](stepobj.params, this)
+            const items = stepobj.gitid.split('/') 
+            const module = require(items[1]+'/'+items[2])
+            const stepname = items[0]
+            const account = items[0]
+            const step = module.create(stepobj.params, this)
             this._steps.set(stepobj.id, step)
         })
 
