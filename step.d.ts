@@ -45,7 +45,7 @@ declare type ParamsMap = {
 declare type TypedParamsMap = {
     [key: string]: {
         value: string;
-        type: BaseType;
+        type: ('int' | 'ints' | 'number' | 'numbers' | 'regexp' | 'boolean' | 'date' | 'dates' | 'regexp' | 'string' | 'strings');
     };
 };
 interface StepObj {
@@ -241,4 +241,4 @@ declare abstract class Step {
     output(outport: string, feature: any): void;
     input(inport: string, feature: any): void;
 }
-export { Declaration, Batch, Step, ParamsMap };
+export { Declaration, Batch, Step, ParamsMap, };

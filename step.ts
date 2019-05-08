@@ -89,9 +89,8 @@ type ParamsMap = {
 }
 
 type TypedParamsMap = {
-    [key: string]: {value: string, type: BaseType },
+    [key: string]: {value: string, type: ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings') },
 }
-
 
 interface StepObj {
     id: string;
@@ -190,20 +189,25 @@ class Batch {
         const argv: any = {};
         // default value in batch declaration
         Object.keys(this._flowchart.args).forEach(name => {
-            argv[name] = argfunc(this._flowchart.args[name].type,this._flowchart.args[name].value)
+            const type = BaseType[this._flowchart.args[name].type]
+            const value = this._flowchart.args[name].value
+            argv[name] = argfunc(type,value)
         })
         // then env variables
         Object.keys(this._flowchart.args).forEach(name => {
             if (name in process.env) {
-                argv[name] = argfunc(this._flowchart.args[name].type,process.env[name]);
+                const type = BaseType[this._flowchart.args[name].type]
+                const value =process.env[name]
+                argv[name] = argfunc(type,value);
             }
         })
         // then process parameters
         process.argv.forEach((arg, i) => {
             if (i < 2) return; // skip 'node.exe' and 'script.js'
             const [name, value] = arg.replace(/^--?/, '').split(/=/)
+            const type = BaseType[this._flowchart.args[name].type]
             if (name in this._flowchart.args) {
-                this._args[name] = argfunc(this._flowchart.args[name].type,value);
+                this._args[name] = argfunc(type,value);
             }
         })
         this._args = new Proxy(Object.freeze(argv), {
@@ -222,7 +226,9 @@ class Batch {
         // prepare lazy evaluation of parameters for each feature
         const globals: any = {};
         Object.keys(this._flowchart.globals).forEach(name => {
-            globals[name] = globfunc(this._flowchart.globals[name].type,this._flowchart.globals[name].value);
+            const type = BaseType[this._flowchart.globals[name].type]
+            const value = this._flowchart.globals[name].value
+            globals[name] = globfunc(type,value);
         });
 
         this._globals = new Proxy(Object.freeze(globals), {
@@ -544,5 +550,5 @@ class Link {
 */
 
 export {
-    Declaration, Batch, Step, ParamsMap, BaseType,
+    Declaration, Batch, Step, ParamsMap,
 };
