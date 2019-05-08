@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const v4_1 = require("uuid/v4");
+const uuid = require("uuid/v4");
 const path = require("path");
 function isfunc(f) {
     return (typeof f === 'function');
@@ -316,7 +316,7 @@ class Step {
      * @param batch the batch containing this step
      */
     constructor(decl, params, batch) {
-        this.id = v4_1.default();
+        this.id = uuid();
         this.pipes = [];
         this.ports = {};
         this.binds = {};
