@@ -1,5 +1,7 @@
 import uuid from 'uuid/v4';
 import * as path from 'path';
+process.env.NODE_PATH += ';./';
+
 
 function isfunc(f: any): boolean {
     return (typeof f === 'function')

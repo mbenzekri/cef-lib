@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const v4_1 = require("uuid/v4");
 const path = require("path");
+process.env.NODE_PATH += ';./';
 function isfunc(f) {
     return (typeof f === 'function');
 }
