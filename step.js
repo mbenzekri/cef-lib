@@ -5,13 +5,13 @@ const path = require("path");
 function isfunc(f) {
     return (typeof f === 'function');
 }
-function error(message) {
+function error(obj, message) {
     const e = new Error();
-    const frame = e.stack.split('\n')[2];
-    const line = frame.split(':')[1];
-    const func = frame.split(' ')[5];
+    const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '');
+    const items = frame.split(':');
+    const line = (items.length > 1) ? items[items.length - 2] : '-';
     const script = path.basename(__filename);
-    return new Error(`${func}()@${script}:${line} ${message}`);
+    return new Error(`${script}@${line}: ${obj.toString()} => ${message}`);
 }
 function bodyfunc(type, strvalue) {
     let body = `return \`${strvalue}\``;
@@ -125,6 +125,10 @@ class Batch {
     get feature() { return this._feature; }
     get globals() { return this._globals; }
     get args() { return this._args; }
+    /**
+     * the toString() legacy method
+     */
+    toString() { return `[${this._flowchart.name}]`; }
     initargs() {
         const argv = {};
         // default value in batch declaration
@@ -157,7 +161,7 @@ class Batch {
                     return target[property]();
                 }
                 catch (e) {
-                    throw error(`${this}: error "${e.message}" when evaluating arg parameter "${String(property)}"`);
+                    throw error(this, `error "${e.message}" when evaluating arg parameter "${String(property)}"`);
                 }
             },
         });
@@ -176,7 +180,7 @@ class Batch {
                     return target[property](this._args, this.globals);
                 }
                 catch (e) {
-                    throw error(`${this}: error "${e.message}" when evaluating global parameter "${String(property)}"`);
+                    throw error(this, `error "${e.message}" when evaluating global parameter "${String(property)}"`);
                 }
             },
         });
@@ -205,16 +209,16 @@ class Batch {
         this._flowchart.pipes.forEach((pipeobj, i) => {
             const step = this._steps.get(pipeobj.from);
             if (!step)
-                throw error(`${this}: unknown "from" step in flowchart pipes no ${i}`);
+                throw error(this, `unknown from step "${pipeobj.from}" in flowchart pipes no ${i}`);
             const target = this._steps.get(pipeobj.to);
             if (!target)
-                throw error(`${this}: unknown "to" step in flowchart pipes no ${i}`);
+                throw error(this, `unknown to step "${pipeobj.to}" in flowchart pipes no ${i}`);
             const outport = step.ports[pipeobj.outport];
             if (!outport)
-                throw error(`${this}: unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
+                throw error(this, `unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
             const inport = step.ports[pipeobj.inport];
             if (!inport)
-                throw error(`${this}: unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
+                throw error(this, `unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
             step.pipe(outport, inport, (f) => f);
         });
         // collect initial steps
@@ -258,7 +262,7 @@ class Port {
     }
     output(feature) {
         if (this.type !== PortType.output)
-            throw error(`${this}: feature outputed in an input port "${this.name}" `);
+            throw error(this, `feature outputed in an input port "${this.name}" `);
         if (feature === SOF && this.state === State.idle)
             this.state = State.started;
         if (feature === EOF && this.pipes.every(p => p.state === State.ended))
@@ -267,7 +271,7 @@ class Port {
     }
     input(feature) {
         if (this.type !== PortType.input)
-            throw error(`${this}: feature inputed in an output port "${this.name}" `);
+            throw error(this, `feature inputed in an output port "${this.name}" `);
         if (feature === SOF && this.state === State.idle)
             this.state = State.started;
         if (feature === EOF && this.pipes.every(p => p.state === State.ended))
@@ -350,7 +354,7 @@ class Step {
                 paramsfn[name] = paramfunc(this.decl.parameters[name].type, params[name]);
             }
             else {
-                throw error(`${this}: parameter "${name}" unknown must be one of "${Object.keys(this.decl.parameters).toLocaleString()}"`);
+                throw error(this, `parameter "${name}" unknown must be one of "${Object.keys(this.decl.parameters).toString()}"`);
             }
         });
         this.params = new Proxy(paramsfn, {
@@ -359,7 +363,7 @@ class Step {
                     return target[property](batch.args, batch.globals, this.feature);
                 }
                 catch (e) {
-                    throw error(`${this}: error "${e.message}" when evaluating step parameter "${String(property)}"`);
+                    throw error(this, `error "${e.message}" when evaluating step parameter "${String(property)}"`);
                 }
             },
         });
@@ -386,9 +390,9 @@ class Step {
      */
     bind(inport, method) {
         if (!this.isinport(inport))
-            throw error(`${this}: unknown input port "${inport}".`);
+            throw error(this, `unknown input port "${inport}".`);
         if (!isfunc(method))
-            throw error(`${this}: method argument is not a function "${method}"`);
+            throw error(this, `method argument is not a function "${method}"`);
         this.binds[inport] = method;
     }
     /**
@@ -434,15 +438,15 @@ class Step {
      */
     output(outport, feature) {
         if (!this.isoutport(outport))
-            throw error(`${this}: unknown output port  "${outport}".`);
+            throw error(this, `unknown output port  "${outport}".`);
         this.ports[outport].output(feature);
     }
     input(inport, feature) {
         this.feature = feature;
         if (!this.isinport(inport))
-            throw error(`${this}: unknown input port  "${inport}".`);
+            throw error(this, `unknown input port  "${inport}".`);
         if (typeof this[`input_${inport}`] !== 'function')
-            throw error(`${this}: method "input_${inport}" not implemented.`);
+            throw error(this, `method "input_${inport}" not implemented.`);
         this[`input_${inport}`](feature);
     }
 }

@@ -94,6 +94,10 @@ declare class Batch {
     readonly feature: any;
     readonly globals: any;
     readonly args: any;
+    /**
+     * the toString() legacy method
+     */
+    toString(): string;
     private initargs;
     private initglobs;
     /**
