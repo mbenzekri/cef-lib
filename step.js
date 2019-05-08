@@ -119,10 +119,6 @@ class Batch {
         this._globals = {};
         this._args = {};
         this._flowchart = flowchart;
-        this.initargs();
-        this.initglobs();
-        this.initsteps();
-        Object.freeze(this);
     }
     get batch() { return this._flowchart; }
     get steps() { return this._steps; }
@@ -215,10 +211,10 @@ class Batch {
                 throw error(`${this}: unknown "to" step in flowchart pipes no ${i}`);
             const outport = step.ports[pipeobj.outport];
             if (!outport)
-                throw error(`${this}: unknown "outport" port in flowchart pipes no ${i}`);
+                throw error(`${this}: unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
             const inport = step.ports[pipeobj.inport];
             if (!inport)
-                throw error(`${this}: unknown "inport" port in flowchart pipes no ${i}`);
+                throw error(`${this}: unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
             step.pipe(outport, inport, (f) => f);
         });
         // collect initial steps
@@ -230,7 +226,16 @@ class Batch {
     }
     run() {
         // start nodes without predecessor
-        this._starts.forEach(step => step.start());
+        try {
+            this.initargs();
+            this.initglobs();
+            this.initsteps();
+            Object.freeze(this);
+            this._starts.forEach(step => step.start());
+        }
+        catch (e) {
+            console.error(`Error: ${e.message}`);
+        }
     }
 }
 exports.Batch = Batch;
