@@ -571,5 +571,5 @@ class Link {
 */
 
 export {
-    Declaration, Batch, Step,
+    Declaration, Batch, Step, ParamsMap,
 };
