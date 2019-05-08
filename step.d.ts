@@ -7,19 +7,8 @@ declare enum State {
     started = 1,
     ended = 2
 }
-declare enum BaseType {
-    int = 0,
-    ints = 1,
-    number = 2,
-    numbers = 3,
-    boolean = 4,
-    date = 5,
-    dates = 6,
-    regexp = 7,
-    string = 8,
-    strings = 9
-}
-declare type ParametersMap = {
+declare type BaseType = ('int' | 'ints' | 'number' | 'numbers' | 'regexp' | 'boolean' | 'date' | 'dates' | 'regexp' | 'string' | 'strings');
+declare type ParamsMapDef = {
     [key: string]: {
         desc: string;
         type: BaseType;
@@ -34,7 +23,7 @@ interface DeclObj {
     gitid: string;
     title: string;
     desc: string;
-    parameters: ParametersMap;
+    parameters: ParamsMapDef;
     inputs: PortsMap;
     outputs: PortsMap;
     fields: any[];
@@ -45,7 +34,7 @@ declare type ParamsMap = {
 declare type TypedParamsMap = {
     [key: string]: {
         value: string;
-        type: ('int' | 'ints' | 'number' | 'numbers' | 'regexp' | 'boolean' | 'date' | 'dates' | 'regexp' | 'string' | 'strings');
+        type: BaseType;
     };
 };
 interface StepObj {
@@ -83,7 +72,7 @@ declare class Declaration {
     readonly fields: any[];
     readonly inputs: PortsMap;
     readonly outputs: PortsMap;
-    readonly parameters: ParametersMap;
+    readonly parameters: ParamsMapDef;
 }
 /**
  * class defining a batch to run in cloud engine factory

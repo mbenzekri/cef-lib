@@ -17,25 +17,25 @@ function error(message: string): Error {
 function bodyfunc(type: BaseType, strvalue:string): string {
     let body = `return \`${strvalue}\``;
     switch (type) {
-        case BaseType.int: body = `return parseInt(\`${strvalue}\`,10)`;
+        case 'int': body = `return parseInt(\`${strvalue}\`,10)`;
             break;
-        case BaseType.ints: body = `return (\`${strvalue}\`).split(/,/).map(v => parseInt(v,10))`;
+        case 'ints': body = `return (\`${strvalue}\`).split(/,/).map(v => parseInt(v,10))`;
             break;
-        case BaseType.number: body = `return parseFloat(\`${strvalue}\`)`;
+        case 'number': body = `return parseFloat(\`${strvalue}\`)`;
             break;
-        case BaseType.numbers: body = `return (\`${strvalue}\`).split(/,/).map(v => parseFloat(v))`;
+        case 'numbers': body = `return (\`${strvalue}\`).split(/,/).map(v => parseFloat(v))`;
             break;
-        case BaseType.boolean: body = `return \`${strvalue ? true : false}\` === 'true' `;
+        case 'boolean': body = `return \`${strvalue ? true : false}\` === 'true' `;
             break;
-        case BaseType.date: body = `return new Date(\`${strvalue}\`)`;
+        case 'date': body = `return new Date(\`${strvalue}\`)`;
             break;
-        case BaseType.dates: body = `return (\`${strvalue}\`).split(/,/).map(v => new Date(v))`;
+        case 'dates': body = `return (\`${strvalue}\`).split(/,/).map(v => new Date(v))`;
             break;
-        case BaseType.regexp: body = `return new RegExp(\`${strvalue}\`)`;
+        case 'regexp': body = `return new RegExp(\`${strvalue}\`)`;
             break;
-        case BaseType.string: body = `return \`${strvalue}\``;
+        case 'string': body = `return \`${strvalue}\``;
             break;
-        case BaseType.strings: body = `return (\`${strvalue}\`).split(/,/)`;
+        case 'strings': body = `return (\`${strvalue}\`).split(/,/)`;
             break;
     }
     return body;
@@ -63,10 +63,10 @@ enum PortType { input, output, }
 
 enum State { idle, started, ended, }
 
-enum BaseType { int, ints, number, numbers, boolean, date, dates, regexp, string, strings }
+//enum BaseType { int, ints, number, numbers, boolean, date, dates, regexp, string, strings }
+type BaseType = ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings')
 
-
-type ParametersMap = {
+type ParamsMapDef = {
     [key: string]: { desc: string; type: BaseType }
 };
 
@@ -78,7 +78,7 @@ interface DeclObj {
     gitid: string;
     title: string;
     desc: string;
-    parameters: ParametersMap;
+    parameters: ParamsMapDef;
     inputs: PortsMap;
     outputs: PortsMap;
     fields: any[];
@@ -89,7 +89,7 @@ type ParamsMap = {
 }
 
 type TypedParamsMap = {
-    [key: string]: {value: string, type: ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings') },
+    [key: string]: {value: string, type: BaseType  },
 }
 
 interface StepObj {
@@ -189,14 +189,14 @@ class Batch {
         const argv: any = {};
         // default value in batch declaration
         Object.keys(this._flowchart.args).forEach(name => {
-            const type = BaseType[this._flowchart.args[name].type]
+            const type = this._flowchart.args[name].type
             const value = this._flowchart.args[name].value
             argv[name] = argfunc(type,value)
         })
         // then env variables
         Object.keys(this._flowchart.args).forEach(name => {
             if (name in process.env) {
-                const type = BaseType[this._flowchart.args[name].type]
+                const type = this._flowchart.args[name].type
                 const value =process.env[name]
                 argv[name] = argfunc(type,value);
             }
@@ -205,7 +205,7 @@ class Batch {
         process.argv.forEach((arg, i) => {
             if (i < 2) return; // skip 'node.exe' and 'script.js'
             const [name, value] = arg.replace(/^--?/, '').split(/=/)
-            const type = BaseType[this._flowchart.args[name].type]
+            const type = this._flowchart.args[name].type
             if (name in this._flowchart.args) {
                 this._args[name] = argfunc(type,value);
             }
@@ -226,7 +226,7 @@ class Batch {
         // prepare lazy evaluation of parameters for each feature
         const globals: any = {};
         Object.keys(this._flowchart.globals).forEach(name => {
-            const type = BaseType[this._flowchart.globals[name].type]
+            const type = this._flowchart.globals[name].type
             const value = this._flowchart.globals[name].value
             globals[name] = globfunc(type,value);
         });

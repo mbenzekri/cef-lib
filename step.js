@@ -16,34 +16,34 @@ function error(message) {
 function bodyfunc(type, strvalue) {
     let body = `return \`${strvalue}\``;
     switch (type) {
-        case BaseType.int:
+        case 'int':
             body = `return parseInt(\`${strvalue}\`,10)`;
             break;
-        case BaseType.ints:
+        case 'ints':
             body = `return (\`${strvalue}\`).split(/,/).map(v => parseInt(v,10))`;
             break;
-        case BaseType.number:
+        case 'number':
             body = `return parseFloat(\`${strvalue}\`)`;
             break;
-        case BaseType.numbers:
+        case 'numbers':
             body = `return (\`${strvalue}\`).split(/,/).map(v => parseFloat(v))`;
             break;
-        case BaseType.boolean:
+        case 'boolean':
             body = `return \`${strvalue ? true : false}\` === 'true' `;
             break;
-        case BaseType.date:
+        case 'date':
             body = `return new Date(\`${strvalue}\`)`;
             break;
-        case BaseType.dates:
+        case 'dates':
             body = `return (\`${strvalue}\`).split(/,/).map(v => new Date(v))`;
             break;
-        case BaseType.regexp:
+        case 'regexp':
             body = `return new RegExp(\`${strvalue}\`)`;
             break;
-        case BaseType.string:
+        case 'string':
             body = `return \`${strvalue}\``;
             break;
-        case BaseType.strings:
+        case 'strings':
             body = `return (\`${strvalue}\`).split(/,/)`;
             break;
     }
@@ -73,19 +73,6 @@ var State;
     State[State["started"] = 1] = "started";
     State[State["ended"] = 2] = "ended";
 })(State || (State = {}));
-var BaseType;
-(function (BaseType) {
-    BaseType[BaseType["int"] = 0] = "int";
-    BaseType[BaseType["ints"] = 1] = "ints";
-    BaseType[BaseType["number"] = 2] = "number";
-    BaseType[BaseType["numbers"] = 3] = "numbers";
-    BaseType[BaseType["boolean"] = 4] = "boolean";
-    BaseType[BaseType["date"] = 5] = "date";
-    BaseType[BaseType["dates"] = 6] = "dates";
-    BaseType[BaseType["regexp"] = 7] = "regexp";
-    BaseType[BaseType["string"] = 8] = "string";
-    BaseType[BaseType["strings"] = 9] = "strings";
-})(BaseType || (BaseType = {}));
 /**
  * class for step declaration
  * use this class to declare a new kind of step for the cloud engine factory
@@ -145,14 +132,14 @@ class Batch {
         const argv = {};
         // default value in batch declaration
         Object.keys(this._flowchart.args).forEach(name => {
-            const type = BaseType[this._flowchart.args[name].type];
+            const type = this._flowchart.args[name].type;
             const value = this._flowchart.args[name].value;
             argv[name] = argfunc(type, value);
         });
         // then env variables
         Object.keys(this._flowchart.args).forEach(name => {
             if (name in process.env) {
-                const type = BaseType[this._flowchart.args[name].type];
+                const type = this._flowchart.args[name].type;
                 const value = process.env[name];
                 argv[name] = argfunc(type, value);
             }
@@ -162,7 +149,7 @@ class Batch {
             if (i < 2)
                 return; // skip 'node.exe' and 'script.js'
             const [name, value] = arg.replace(/^--?/, '').split(/=/);
-            const type = BaseType[this._flowchart.args[name].type];
+            const type = this._flowchart.args[name].type;
             if (name in this._flowchart.args) {
                 this._args[name] = argfunc(type, value);
             }
@@ -182,7 +169,7 @@ class Batch {
         // prepare lazy evaluation of parameters for each feature
         const globals = {};
         Object.keys(this._flowchart.globals).forEach(name => {
-            const type = BaseType[this._flowchart.globals[name].type];
+            const type = this._flowchart.globals[name].type;
             const value = this._flowchart.globals[name].value;
             globals[name] = globfunc(type, value);
         });
