@@ -89,7 +89,7 @@ type ParamsMap = {
 }
 
 type TypedParamsMap = {
-    [key: string]: {value: string, type: BaseType  },
+    [key: string]: {value: string, type: BaseType,  desc: string},
 }
 
 interface StepObj {

@@ -35,6 +35,7 @@ declare type TypedParamsMap = {
     [key: string]: {
         value: string;
         type: BaseType;
+        desc: string;
     };
 };
 interface StepObj {
@@ -193,6 +194,7 @@ declare abstract class Step {
      * check for an output port name existance
      */
     isoutport(port: any): boolean;
+    log(message: string): void;
     /**
      * bind an input port name to a callback method that will be called to receive input features
      * @param {string} inport: the input port name to bind with the method
