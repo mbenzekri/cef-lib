@@ -263,10 +263,17 @@ class Batch {
         })
 
         // connect all steps 
-        this._flowchart.pipes.forEach(pipeobj => {
+        this._flowchart.pipes.forEach((pipeobj,i) => {
             const step = this._steps.get(pipeobj.from) 
+            if (!step) throw error(`${this}: unknown "from" step in flowchart pipes no ${i}`);
             const target = this._steps.get(pipeobj.to) 
-            step.pipe(pipeobj.from, pipeobj.to, target, f => true)
+            if (!target) throw error(`${this}: unknown "to" step in flowchart pipes no ${i}`);
+            const outport = step.ports[pipeobj.outport];
+            if (!outport) throw error(`${this}: unknown "outport" port in flowchart pipes no ${i}`);
+            const inport = step.ports[pipeobj.inport];
+            if (!inport) throw error(`${this}: unknown "inport" port in flowchart pipes no ${i}`);
+            
+            step.pipe(outport, inport, (f: any) => f)
         })
 
         // collect initial steps
@@ -463,12 +470,10 @@ abstract class Step {
      * @param target target step of the pipe (where data flow)
      * @param filter filter function for flowing data
      */
-    pipe(outport: string, inport: string, target: Step, filter: (f) => boolean = f => true) {
-        if (!this.ports[outport]) throw error(`${this}: unknown output port  "${outport}".`);
-        if (!this.ports[inport]) throw error(`${this}: unknown input port  "${inport}".`);
-        const pipe = new Pipe(this.ports[outport], this.ports[inport], filter);
-        this.ports[outport].add(pipe);
-        target.ports[inport].add(pipe);
+    pipe(outport: Port, inport: Port, filter: (f: any) => boolean = f => true) {
+        const pipe = new Pipe(outport, inport, filter);
+        outport.add(pipe);
+        inport.add(pipe);
     }
 
     /**

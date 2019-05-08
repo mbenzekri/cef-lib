@@ -207,7 +207,7 @@ declare abstract class Step {
      * @param target target step of the pipe (where data flow)
      * @param filter filter function for flowing data
      */
-    pipe(outport: string, inport: string, target: Step, filter?: (f: any) => boolean): void;
+    pipe(outport: Port, inport: Port, filter?: (f: any) => boolean): void;
     /**
      * set typedef for an output port
      * @param {*} name: output a port name
