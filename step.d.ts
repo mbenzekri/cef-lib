@@ -241,4 +241,4 @@ declare abstract class Step {
     output(outport: string, feature: any): void;
     input(inport: string, feature: any): void;
 }
-export { Declaration, Batch, Step, BaseType };
+export { Declaration, Batch, Step, ParamsMap };
