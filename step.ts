@@ -272,7 +272,7 @@ class Batch {
             if (!target) throw error(this,`unknown to step "${pipeobj.to}" in flowchart pipes no ${i}`);
             const outport = step.ports[pipeobj.outport];
             if (!outport) throw error(this,`unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
-            const inport = step.ports[pipeobj.inport];
+            const inport = target.ports[pipeobj.inport];
             if (!inport) throw error(this,`unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
 
             step.pipe(outport, inport, (f: any) => f)
