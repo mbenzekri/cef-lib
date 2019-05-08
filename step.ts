@@ -14,7 +14,7 @@ function error(message: string): Error {
     return new Error(`${func}()@${script}:${line} ${message}`)
 }
 
-function bodyfunc(type: BaseType, strvalue:string): string {
+function bodyfunc(type: string, strvalue:string): string {
     let body = `return \`${strvalue}\``;
     switch (type) {
         case 'int': body = `return parseInt(\`${strvalue}\`,10)`;
@@ -41,15 +41,15 @@ function bodyfunc(type: BaseType, strvalue:string): string {
     return body;
 }
 
-function argfunc(type: BaseType, strvalue:string ): Function  {
+function argfunc(type: string, strvalue:string ): Function  {
     return new Function(bodyfunc(type, strvalue));
 }
 
-function globfunc(type: BaseType, strvalue:string ): Function  {
+function globfunc(type: string, strvalue:string ): Function  {
     return new Function('args','globals',bodyfunc(type, strvalue));
 }
 
-function paramfunc(type: BaseType, strvalue:string ): Function  {
+function paramfunc(type: string, strvalue:string ): Function  {
     return new Function('args','globals','feature',bodyfunc(type, strvalue));
 }
 
@@ -64,10 +64,10 @@ enum PortType { input, output, }
 enum State { idle, started, ended, }
 
 //enum BaseType { int, ints, number, numbers, boolean, date, dates, regexp, string, strings }
-type BaseType = ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings')
+//type BaseType = ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings')
 
 type ParamsMapDef = {
-    [key: string]: { desc: string; type: BaseType }
+    [key: string]: { desc: string; type: string }
 };
 
 type PortsMap = {
@@ -88,9 +88,7 @@ type ParamsMap = {
     [key: string]: string
 }
 
-type TypedParamsMap = {
-    [key: string]: {value: string, type: BaseType,  desc: string},
-}
+type TypedParamsMap = { [key: string]: { value: string, type: string,  desc: string } }
 
 interface StepObj {
     id: string;

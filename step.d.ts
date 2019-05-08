@@ -7,11 +7,10 @@ declare enum State {
     started = 1,
     ended = 2
 }
-declare type BaseType = ('int' | 'ints' | 'number' | 'numbers' | 'regexp' | 'boolean' | 'date' | 'dates' | 'regexp' | 'string' | 'strings');
 declare type ParamsMapDef = {
     [key: string]: {
         desc: string;
-        type: BaseType;
+        type: string;
     };
 };
 declare type PortsMap = {
@@ -34,7 +33,7 @@ declare type ParamsMap = {
 declare type TypedParamsMap = {
     [key: string]: {
         value: string;
-        type: BaseType;
+        type: string;
         desc: string;
     };
 };
