@@ -408,7 +408,11 @@ abstract class Step {
 
         const paramsfn = {}
         Object.keys(params).forEach(name => {
-            paramsfn[name] = paramfunc(this.decl.parameters[name].type, params[name])
+            if (name in this.decl.parameters) {
+                paramsfn[name] = paramfunc(this.decl.parameters[name].type, params[name])
+            } else {
+                throw error(`${this}: parameter "${name}" unknown must be one of "${Object.keys(this.decl.parameters).toLocaleString()}"`);
+            }
         })
 
         this.params = new Proxy(paramsfn, {
