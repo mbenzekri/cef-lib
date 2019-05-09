@@ -245,7 +245,7 @@ class Port {
         this.pipes.push(pipe);
     }
     output(feature) {
-        !this.isoutport || error(this, `feature outputed in an input port "${this.name}" `);
+        this.isinport || error(this, `feature outputed in an input port "${this.name}" `);
         if (feature === SOF && this.state === State.idle)
             this.state = State.started;
         if (feature === EOF && this.pipes.every(p => p.state === State.ended))
@@ -253,7 +253,7 @@ class Port {
         this.pipes.forEach(p => p.send(feature));
     }
     input(feature) {
-        !this.isinport || error(this, `feature inputed in an output port "${this.name}" `);
+        this.isoutport || error(this, `feature inputed in an output port "${this.name}" `);
         if (feature === SOF && this.state === State.idle)
             this.state = State.started;
         if (feature === EOF && this.pipes.every(p => p.state === State.ended))
