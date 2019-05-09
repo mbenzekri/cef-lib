@@ -189,7 +189,7 @@ class Batch {
             const items = stepobj.gitid.split('/');
             items.shift();
             let module;
-            const locpath = (process.env.CEF_PATH || '.') + '/' + items[items.length - 1];
+            const locpath = (process.env.CEF_PATH || '.') + '/' + items[items.length - 2] + '/' + items[items.length - 1];
             const globpath = items.join('/');
             try {
                 // for production mode modules install in node_modules
