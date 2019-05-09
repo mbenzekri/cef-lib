@@ -242,7 +242,8 @@ class Batch {
                 const modpath = process.env.CEF_PATH + '/' + items[0]
                 module = require(modpath)
             }
-            const step = module.create(stepobj.params, this)
+            const step:Step = module.create(stepobj.params, this)
+            step.initparams(this.args,this.globals)
             this._steps.set(stepobj.id, step)
         })
 
@@ -372,7 +373,7 @@ abstract class Step {
     private ports: { [key: string]: Port } = {}
     private feature: any
     private state = State.idle
-    readonly params: any = {}
+    private _params: any = {}
 
     // abstract start() method must be implemented by heriting classes 
     // start() is called for a step at batch ignition time when step have no input port
@@ -389,7 +390,7 @@ abstract class Step {
      * @param params parameters expressions for the step
      * @param batch the batch containing this step
      */
-    protected constructor(decl: Declaration, params: ParamsMap, batch: Batch) {
+    protected constructor(decl: Declaration, params: ParamsMap) {
         this.decl = decl
 
         Object.keys(decl.inputs).forEach(name => {
@@ -398,20 +399,23 @@ abstract class Step {
         Object.keys(decl.outputs).forEach(name => {
             this.ports[name] = new Port(PortType.output, name, this);
         })
+        this._params = params;
+    }
 
+    initparams(args:any, globals:any) {
         const paramsfn = {}
-        Object.keys(params).forEach(name => {
+        Object.keys(this._params).forEach(name => {
             if (name in this.decl.parameters) {
-                paramsfn[name] = paramfunc(this.decl.parameters[name].type, params[name])
+                paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name])
             } else {
                 throw error(this, `parameter "${name}" unknown must be one of "${Object.keys(this.decl.parameters).toString()}"`);
             }
         });
 
-        this.params = new Proxy(paramsfn, {
+        this._params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
-                    return target[property](batch.args, batch.globals, this.params, this.feature);
+                    return target[property](args, globals, this._params, this.feature);
                 } catch (e) {
                     throw error(this, `error "${e.message}" when evaluating step parameter "${String(property)}"`);
                 }
@@ -419,6 +423,7 @@ abstract class Step {
         });
     }
 
+    get params(): any { return this._params }
     get isidle(): boolean { return this.state === State.idle }
     get isstarted(): boolean { return this.state === State.started }
     get isended(): boolean { return this.state === State.ended }

@@ -158,7 +158,7 @@ declare abstract class Step {
     private ports;
     private feature;
     private state;
-    readonly params: any;
+    private _params;
     abstract start(): void;
     abstract end(): void;
     /**
@@ -167,7 +167,9 @@ declare abstract class Step {
      * @param params parameters expressions for the step
      * @param batch the batch containing this step
      */
-    protected constructor(decl: Declaration, params: ParamsMap, batch: Batch);
+    protected constructor(decl: Declaration, params: ParamsMap);
+    initparams(args: any, globals: any): void;
+    readonly params: any;
     readonly isidle: boolean;
     readonly isstarted: boolean;
     readonly isended: boolean;

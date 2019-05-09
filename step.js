@@ -195,6 +195,7 @@ class Batch {
                 module = require(modpath);
             }
             const step = module.create(stepobj.params, this);
+            step.initparams(this.args, this.globals);
             this._steps.set(stepobj.id, step);
         });
         // connect all steps 
@@ -316,11 +317,11 @@ class Step {
      * @param params parameters expressions for the step
      * @param batch the batch containing this step
      */
-    constructor(decl, params, batch) {
+    constructor(decl, params) {
         this.id = uuid();
         this.ports = {};
         this.state = State.idle;
-        this.params = {};
+        this._params = {};
         this.decl = decl;
         Object.keys(decl.inputs).forEach(name => {
             this.ports[name] = new Port(PortType.input, name, this);
@@ -328,19 +329,22 @@ class Step {
         Object.keys(decl.outputs).forEach(name => {
             this.ports[name] = new Port(PortType.output, name, this);
         });
+        this._params = params;
+    }
+    initparams(args, globals) {
         const paramsfn = {};
-        Object.keys(params).forEach(name => {
+        Object.keys(this._params).forEach(name => {
             if (name in this.decl.parameters) {
-                paramsfn[name] = paramfunc(this.decl.parameters[name].type, params[name]);
+                paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name]);
             }
             else {
                 throw error(this, `parameter "${name}" unknown must be one of "${Object.keys(this.decl.parameters).toString()}"`);
             }
         });
-        this.params = new Proxy(paramsfn, {
+        this._params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
-                    return target[property](batch.args, batch.globals, this.params, this.feature);
+                    return target[property](args, globals, this._params, this.feature);
                 }
                 catch (e) {
                     throw error(this, `error "${e.message}" when evaluating step parameter "${String(property)}"`);
@@ -348,6 +352,7 @@ class Step {
             },
         });
     }
+    get params() { return this._params; }
     get isidle() { return this.state === State.idle; }
     get isstarted() { return this.state === State.started; }
     get isended() { return this.state === State.ended; }
