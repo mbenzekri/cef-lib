@@ -185,14 +185,25 @@ class Batch {
     initsteps() {
         // construct all steps 
         this._flowchart.steps.forEach(stepobj => {
-            const items = stepobj.gitid.split('@');
+            // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
+            const items = stepobj.gitid.split('/');
+            items.shift();
             let module;
+            const locpath = (process.env.CEF_PATH || '.') + '/' + items[items.length - 1];
+            const globpath = items.join('/');
             try {
-                module = require(items[0]);
+                // for production mode modules install in node_modules
+                module = require(globpath);
             }
             catch (e) {
-                const modpath = process.env.CEF_PATH + '/' + items[0];
-                module = require(modpath);
+                try {
+                    // during dev testing this module module js file is in project "steps" directory
+                    // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
+                    module = require(locpath);
+                }
+                catch (e) {
+                    error(this, `unable to locate step "${stepobj.gitid}"  module searched at ${globpath} and ${locpath} \n (did you forget process.env.CEF_PATH affectaion during dev )`);
+                }
             }
             const step = module.create(stepobj.params);
             step.initparams(this.args, this.globals);

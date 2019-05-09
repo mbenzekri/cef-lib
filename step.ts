@@ -45,7 +45,7 @@ function globfunc(type: string, strvalue: string): Function {
 }
 
 function paramfunc(type: string, strvalue: string): Function {
-    return new Function('args', 'globals', 'params','feature', bodyfunc(type, strvalue));
+    return new Function('args', 'globals', 'params', 'feature', bodyfunc(type, strvalue));
 }
 
 const SOF = {};
@@ -64,7 +64,7 @@ enum State { idle, started, ended, }
 type ParamsMapDef = { [key: string]: { desc: string; type: string } };
 type PortsMap = { [key: string]: { desc: string } }
 
-type Declaration =  {
+type Declaration = {
     gitid: string;
     title: string;
     desc: string;
@@ -234,16 +234,26 @@ class Batch {
     private initsteps() {
         // construct all steps 
         this._flowchart.steps.forEach(stepobj => {
-            const items = stepobj.gitid.split('@')
+            // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
+            const items = stepobj.gitid.split('/')
+            items.shift()
             let module;
+            const locpath = (process.env.CEF_PATH || '.') + '/' + items[items.length - 1];
+            const globpath = items.join('/')
             try {
-                module = require(items[0])
+                // for production mode modules install in node_modules
+                module = require(globpath)
             } catch (e) {
-                const modpath = process.env.CEF_PATH + '/' + items[0]
-                module = require(modpath)
+                try {
+                    // during dev testing this module module js file is in project "steps" directory
+                    // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
+                    module = require(locpath)
+                } catch (e) {
+                    error(this, `unable to locate step "${stepobj.gitid}"  module searched at ${globpath} and ${locpath} \n (did you forget process.env.CEF_PATH affectaion during dev )`)
+                }
             }
-            const step:Step = module.create(stepobj.params)
-            step.initparams(this.args,this.globals)
+            const step: Step = module.create(stepobj.params)
+            step.initparams(this.args, this.globals)
             this._steps.set(stepobj.id, step)
         })
 
@@ -265,7 +275,7 @@ class Batch {
             this.initsteps()
             Object.freeze(this)
             // collect initial steps
-            this.steps.forEach((step) =>  step.isinitial && step.start() )
+            this.steps.forEach((step) => step.isinitial && step.start())
         } catch (e) {
             console.error(`Error: ${e.message}`)
         }
@@ -402,7 +412,7 @@ abstract class Step {
         this._params = params;
     }
 
-    initparams(args:any, globals:any) {
+    initparams(args: any, globals: any) {
         const paramsfn = {}
         Object.keys(this._params).forEach(name => {
             if (name in this.decl.parameters) {
@@ -478,20 +488,20 @@ abstract class Step {
     input(inport: string, feature: any) {
         this.feature = feature;
         if (!this.isinport(inport)) throw error(this, `unknown input port  "${inport}".`);
-        switch(feature) {
-            case SOF: 
+        switch (feature) {
+            case SOF:
                 // if start of flow and state idle start this step (change state)
                 if (!this.isidle) return
                 this.state = State.started;
                 this.start();
-            break
+                break
             case EOF:
                 // if end of flow and state idle start this step (change state)
                 if (!this.isstarted) return
                 if (!this.outports.every(p => p.isended)) return
                 this.state = State.ended;
                 this.end();
-            break
+                break
             default:
                 if (typeof this[`input_${inport}`] !== 'function') throw error(this, `method "input_${inport}" not implemented.`);
                 this[`input_${inport}`](feature);
