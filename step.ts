@@ -488,24 +488,23 @@ abstract class Step {
     input(inport: string, feature: any) {
         this.feature = feature;
         if (!this.isinport(inport)) throw error(this, `unknown input port  "${inport}".`);
-        switch (feature) {
-            case SOF:
+        if (feature === SOF) {
                 // if start of flow and state idle start this step (change state)
                 if (!this.isidle) return
                 this.state = State.started;
                 this.start();
-                break
-            case EOF:
+                return
+        } 
+        if (feature === EOF) {
                 // if end of flow and state idle start this step (change state)
                 if (!this.isstarted) return
                 if (!this.outports.every(p => p.isended)) return
                 this.state = State.ended;
                 this.end();
-                break
-            default:
-                if (typeof this[`input_${inport}`] !== 'function') throw error(this, `method "input_${inport}" not implemented.`);
-                this[`input_${inport}`](feature);
+                return
         }
+        if (typeof this[`input_${inport}`] !== 'function') throw error(this, `method "input_${inport}" not implemented.`);
+        this[`input_${inport}`](feature);
     }
 }
 
