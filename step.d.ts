@@ -18,7 +18,7 @@ declare type PortsMap = {
         desc: string;
     };
 };
-interface DeclObj {
+declare type Declaration = {
     gitid: string;
     title: string;
     desc: string;
@@ -26,7 +26,7 @@ interface DeclObj {
     inputs: PortsMap;
     outputs: PortsMap;
     fields: any[];
-}
+};
 declare type ParamsMap = {
     [key: string]: string;
 };
@@ -48,32 +48,19 @@ interface PipeObj {
     to: string;
     inport: string;
 }
-interface FlowchartObj {
+declare type Flowchart = {
     name: string;
     title: string;
     args: TypedParamsMap;
     globals: TypedParamsMap;
     steps: StepObj[];
     pipes: PipeObj[];
-}
+};
 /**
  * class for step declaration
  * use this class to declare a new kind of step for the cloud engine factory
  * @member declobj declaration
  */
-declare class Declaration {
-    declobj: DeclObj;
-    constructor(declobj: DeclObj);
-    readonly gitid: string;
-    readonly name: string;
-    readonly repository: string;
-    readonly title: string;
-    readonly desc: string;
-    readonly fields: any[];
-    readonly inputs: PortsMap;
-    readonly outputs: PortsMap;
-    readonly parameters: ParamsMapDef;
-}
 /**
  * class defining a batch to run in cloud engine factory
  * @member batch the js plain object description
@@ -82,16 +69,13 @@ declare class Declaration {
  * @member argv collected arguments from either process.argv or env variables
  */
 declare class Batch {
-    _flowchart: FlowchartObj;
-    _steps: Map<string, Step>;
-    _starts: Step[];
-    _feature: any;
-    _globals: any;
-    _args: any;
-    constructor(flowchart: FlowchartObj);
-    readonly batch: FlowchartObj;
+    private _flowchart;
+    private _steps;
+    private _globals;
+    private _args;
+    constructor(flowchart: Flowchart);
+    readonly flowchart: Flowchart;
     readonly steps: Map<string, Step>;
-    readonly feature: any;
     readonly globals: any;
     readonly args: any;
     /**
@@ -120,16 +104,21 @@ declare class Port {
     readonly pipes: Pipe[];
     private state;
     constructor(type: PortType, name: string, step: Step);
+    readonly isinport: boolean;
+    readonly isoutport: boolean;
+    readonly isstarted: boolean;
+    readonly isended: boolean;
+    readonly isidle: boolean;
     add(pipe: Pipe): void;
     output(feature: any): void;
     input(feature: any): void;
 }
 /**
  * class representing link between two ports during execution phase
- * data flow through pipes from outport to in port
+ * data flow through pipes from outport to inport
  * @member outport port from which data is outputed
  * @member inport: port from which data is inputed
- * @member filter: filtering object
+ * @member filter: filtering function
  * @member state: execution state of the pipe (idle, started, ended)
  */
 declare class Pipe {
@@ -164,18 +153,12 @@ declare class Pipe {
  * @property params : parameters (dynamic see Proxy in constructor)
  */
 declare abstract class Step {
-    id: any;
-    decl: Declaration;
-    pipes: Pipe[];
-    ports: {
-        [key: string]: Port;
-    };
-    binds: {
-        [key: string]: Function;
-    };
-    feature: any;
-    state: State;
-    params: any;
+    readonly id: any;
+    readonly decl: Declaration;
+    private ports;
+    private feature;
+    private state;
+    private params;
     abstract start(): void;
     abstract end(): void;
     /**
@@ -185,25 +168,18 @@ declare abstract class Step {
      * @param batch the batch containing this step
      */
     protected constructor(decl: Declaration, params: ParamsMap, batch: Batch);
-    /**
-     * the toString() legacy method
-     */
+    readonly isidle: boolean;
+    readonly isstarted: boolean;
+    readonly isended: boolean;
+    readonly inports: Port[];
+    readonly outports: Port[];
+    readonly isinitial: any;
+    readonly isfinal: any;
     toString(): string;
-    /**
-     * check for an input port name existance
-     */
     isinport(port: any): boolean;
-    /**
-     * check for an output port name existance
-     */
     isoutport(port: any): boolean;
+    port(name: string): Port;
     log(message: string): void;
-    /**
-     * bind an input port name to a callback method that will be called to receive input features
-     * @param {string} inport: the input port name to bind with the method
-     * @param {function} method: a method to call for each inputed feature
-     */
-    bind(inport: any, method: any): void;
     /**
      * method to connect this step with a data pipe
      * @param outport name of the output port in this step
@@ -212,11 +188,6 @@ declare abstract class Step {
      * @param filter filter function for flowing data
      */
     pipe(outport: Port, inport: Port, filter?: (f: any) => boolean): void;
-    /**
-     * set typedef for an output port
-     * @param {*} name: output a port name
-     * @param {*} typedef: type definition for features to be outputed
-     */
     /**
      * method to declare output termination throw the corresponding port
      * @param name: a port name
@@ -235,4 +206,4 @@ declare abstract class Step {
     output(outport: string, feature: any): void;
     input(inport: string, feature: any): void;
 }
-export { Declaration, Batch, Step, ParamsMap, };
+export { Declaration, Flowchart, Batch, Step, ParamsMap, };

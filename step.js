@@ -2,16 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const uuid = require("uuid/v4");
 const path = require("path");
-function isfunc(f) {
-    return (typeof f === 'function');
-}
 function error(obj, message) {
     const e = new Error();
-    const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '');
-    const items = frame.split(':');
-    const line = (items.length > 1) ? items[items.length - 2] : '-';
+    const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':');
+    const line = (frame.length > 1) ? frame[frame.length - 2] : '-';
     const script = path.basename(__filename);
-    return new Error(`${script}@${line}: ${obj.toString()} => ${message}`);
+    throw new Error(`${script}@${line}: ${obj.toString()} => ${message}`);
 }
 function bodyfunc(type, strvalue) {
     let body = `return \`${strvalue}\``;
@@ -56,11 +52,11 @@ function globfunc(type, strvalue) {
     return new Function('args', 'globals', bodyfunc(type, strvalue));
 }
 function paramfunc(type, strvalue) {
-    return new Function('args', 'globals', 'feature', bodyfunc(type, strvalue));
+    return new Function('args', 'globals', 'params', 'feature', bodyfunc(type, strvalue));
 }
 const SOF = {};
 const EOF = {};
-// steps repository déclaration
+// steps registry
 const DECLARATIONS = {};
 var PortType;
 (function (PortType) {
@@ -78,32 +74,32 @@ var State;
  * use this class to declare a new kind of step for the cloud engine factory
  * @member declobj declaration
  */
-class Declaration {
-    // create a Declaration object from declaration options
-    constructor(declobj) {
-        this.declobj = declobj;
-        DECLARATIONS[this.gitid] = this;
-    }
-    // get step id (universal through / github )
-    get gitid() { return this.declobj.gitid; }
-    // get step name
-    get name() { return this.declobj.gitid.split(/@/)[0]; }
-    // get github repo
-    get repository() { return this.declobj.gitid.split(/@/)[1]; }
-    // get step title
-    get title() { return this.declobj.title; }
-    // get step description
-    get desc() { return this.declobj.desc; }
-    // get step fields description (ngx-formly fields)
-    get fields() { return this.declobj.fields; }
-    // get step inputs
-    get inputs() { return this.declobj.inputs; }
-    // get step outputs
-    get outputs() { return this.declobj.outputs; }
-    // get step parameters
-    get parameters() { return this.declobj.parameters; }
-}
-exports.Declaration = Declaration;
+// class Declaration {
+//     declobj: DeclObj;
+//     // create a Declaration object from declaration options
+//     constructor(declobj: DeclObj) {
+//         this.declobj = declobj;
+//         DECLARATIONS[this.gitid] = this;
+//     }
+//     // get step id (universal through / github )
+//     get gitid() { return this.declobj.gitid; }
+//     // get step name
+//     get name() { return this.declobj.gitid.split(/@/)[0]; }
+//     // get github repo
+//     get repository() { return this.declobj.gitid.split(/@/)[1]; }
+//     // get step title
+//     get title() { return this.declobj.title; }
+//     // get step description
+//     get desc() { return this.declobj.desc; }
+//     // get step fields description (ngx-formly fields)
+//     get fields() { return this.declobj.fields; }
+//     // get step inputs
+//     get inputs() { return this.declobj.inputs; }
+//     // get step outputs
+//     get outputs() { return this.declobj.outputs; }
+//     // get step parameters
+//     get parameters() { return this.declobj.parameters; }
+// }
 /**
  * class defining a batch to run in cloud engine factory
  * @member batch the js plain object description
@@ -114,15 +110,12 @@ exports.Declaration = Declaration;
 class Batch {
     constructor(flowchart) {
         this._steps = new Map();
-        this._starts = [];
-        this._feature = {};
         this._globals = {};
         this._args = {};
         this._flowchart = flowchart;
     }
-    get batch() { return this._flowchart; }
+    get flowchart() { return this._flowchart; }
     get steps() { return this._steps; }
-    get feature() { return this._feature; }
     get globals() { return this._globals; }
     get args() { return this._args; }
     /**
@@ -161,7 +154,7 @@ class Batch {
                     return target[property]();
                 }
                 catch (e) {
-                    throw error(this, `error "${e.message}" when evaluating arg parameter "${String(property)}"`);
+                    error(this, `error "${e.message}" when evaluating arg parameter "${String(property)}"`);
                 }
             },
         });
@@ -180,7 +173,7 @@ class Batch {
                     return target[property](this._args, this.globals);
                 }
                 catch (e) {
-                    throw error(this, `error "${e.message}" when evaluating global parameter "${String(property)}"`);
+                    error(this, `error "${e.message}" when evaluating global parameter "${String(property)}"`);
                 }
             },
         });
@@ -201,31 +194,16 @@ class Batch {
                 const modpath = process.env.CEF_PATH + '/' + items[0];
                 module = require(modpath);
             }
-            const account = items[1];
             const step = module.create(stepobj.params, this);
             this._steps.set(stepobj.id, step);
         });
         // connect all steps 
         this._flowchart.pipes.forEach((pipeobj, i) => {
-            const step = this._steps.get(pipeobj.from);
-            if (!step)
-                throw error(this, `unknown from step "${pipeobj.from}" in flowchart pipes no ${i}`);
-            const target = this._steps.get(pipeobj.to);
-            if (!target)
-                throw error(this, `unknown to step "${pipeobj.to}" in flowchart pipes no ${i}`);
-            const outport = step.ports[pipeobj.outport];
-            if (!outport)
-                throw error(this, `unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
-            const inport = target.ports[pipeobj.inport];
-            if (!inport)
-                throw error(this, `unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
+            const step = this._steps.get(pipeobj.from) || error(this, `unknown from step "${pipeobj.from}" in flowchart pipes no ${i}`);
+            const target = this._steps.get(pipeobj.to) || error(this, `unknown to step "${pipeobj.to}" in flowchart pipes no ${i}`);
+            const outport = step.port(pipeobj.outport) || error(this, `unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
+            const inport = target.port(pipeobj.inport) || error(this, `unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
             step.pipe(outport, inport, (f) => f);
-        });
-        // collect initial steps
-        this.steps.forEach((step, id) => {
-            const ports = Object.keys(step.ports).map(k => step.ports[k]);
-            if (ports.every(port => port.type !== PortType.input))
-                this._starts.push(step);
         });
     }
     run() {
@@ -235,7 +213,8 @@ class Batch {
             this.initglobs();
             this.initsteps();
             Object.freeze(this);
-            this._starts.forEach(step => step.start());
+            // collect initial steps
+            this.steps.forEach((step) => step.isinitial && step.start());
         }
         catch (e) {
             console.error(`Error: ${e.message}`);
@@ -257,12 +236,16 @@ class Port {
         this.name = name;
         this.step = step;
     }
+    get isinport() { return this.type === PortType.input; }
+    get isoutport() { return this.type === PortType.output; }
+    get isstarted() { return this.state === State.started; }
+    get isended() { return this.state === State.ended; }
+    get isidle() { return this.state === State.idle; }
     add(pipe) {
         this.pipes.push(pipe);
     }
     output(feature) {
-        if (this.type !== PortType.output)
-            throw error(this, `feature outputed in an input port "${this.name}" `);
+        !this.isoutport || error(this, `feature outputed in an input port "${this.name}" `);
         if (feature === SOF && this.state === State.idle)
             this.state = State.started;
         if (feature === EOF && this.pipes.every(p => p.state === State.ended))
@@ -270,8 +253,7 @@ class Port {
         this.pipes.forEach(p => p.send(feature));
     }
     input(feature) {
-        if (this.type !== PortType.input)
-            throw error(this, `feature inputed in an output port "${this.name}" `);
+        !this.isinport || error(this, `feature inputed in an output port "${this.name}" `);
         if (feature === SOF && this.state === State.idle)
             this.state = State.started;
         if (feature === EOF && this.pipes.every(p => p.state === State.ended))
@@ -281,10 +263,10 @@ class Port {
 }
 /**
  * class representing link between two ports during execution phase
- * data flow through pipes from outport to in port
+ * data flow through pipes from outport to inport
  * @member outport port from which data is outputed
  * @member inport: port from which data is inputed
- * @member filter: filtering object
+ * @member filter: filtering function
  * @member state: execution state of the pipe (idle, started, ended)
  */
 class Pipe {
@@ -336,9 +318,7 @@ class Step {
      */
     constructor(decl, params, batch) {
         this.id = uuid();
-        this.pipes = [];
         this.ports = {};
-        this.binds = {};
         this.state = State.idle;
         this.params = {};
         this.decl = decl;
@@ -360,7 +340,7 @@ class Step {
         this.params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
-                    return target[property](batch.args, batch.globals, this.feature);
+                    return target[property](batch.args, batch.globals, this.params, this.feature);
                 }
                 catch (e) {
                     throw error(this, `error "${e.message}" when evaluating step parameter "${String(property)}"`);
@@ -368,33 +348,18 @@ class Step {
             },
         });
     }
-    /**
-     * the toString() legacy method
-     */
-    toString() { return `[${this.decl.name} / ${this.id}]`; }
-    /**
-     * check for an input port name existance
-     */
+    get isidle() { return this.state === State.idle; }
+    get isstarted() { return this.state === State.started; }
+    get isended() { return this.state === State.ended; }
+    get inports() { return Object["values"](this.ports).filter(p => p.isinport); }
+    get outports() { return Object["values"](this.ports).filter(p => p.isoutport); }
+    get isinitial() { return Object["values"](this.ports).every(p => p.type !== PortType.input); }
+    get isfinal() { return Object["values"](this.ports).every(p => p.type !== PortType.output); }
+    toString() { return `[${this.decl.gitid} / ${this.id}]`; }
     isinport(port) { return this.ports[port] && this.ports[port].type === PortType.input; }
-    /**
-     * check for an output port name existance
-     */
     isoutport(port) { return this.ports[port] && this.ports[port].type === PortType.output; }
-    log(message) {
-        console.log(message);
-    }
-    /**
-     * bind an input port name to a callback method that will be called to receive input features
-     * @param {string} inport: the input port name to bind with the method
-     * @param {function} method: a method to call for each inputed feature
-     */
-    bind(inport, method) {
-        if (!this.isinport(inport))
-            throw error(this, `unknown input port "${inport}".`);
-        if (!isfunc(method))
-            throw error(this, `method argument is not a function "${method}"`);
-        this.binds[inport] = method;
-    }
+    port(name) { return this.ports[name]; }
+    log(message) { console.log(message); }
     /**
      * method to connect this step with a data pipe
      * @param outport name of the output port in this step
@@ -407,14 +372,6 @@ class Step {
         outport.add(pipe);
         inport.add(pipe);
     }
-    /**
-     * set typedef for an output port
-     * @param {*} name: output a port name
-     * @param {*} typedef: type definition for features to be outputed
-     */
-    // type(port, typedef) {
-    //     if (this.ports[port]) this.ports[port].type(typedef);
-    // }
     /**
      * method to declare output termination throw the corresponding port
      * @param name: a port name
@@ -445,9 +402,28 @@ class Step {
         this.feature = feature;
         if (!this.isinport(inport))
             throw error(this, `unknown input port  "${inport}".`);
-        if (typeof this[`input_${inport}`] !== 'function')
-            throw error(this, `method "input_${inport}" not implemented.`);
-        this[`input_${inport}`](feature);
+        switch (feature) {
+            case SOF:
+                // if start of flow and state idle start this step (change state)
+                if (!this.isidle)
+                    return;
+                this.state = State.started;
+                this.start();
+                break;
+            case EOF:
+                // if end of flow and state idle start this step (change state)
+                if (!this.isstarted)
+                    return;
+                if (!this.outports.every(p => p.isended))
+                    return;
+                this.state = State.ended;
+                this.end();
+                break;
+            default:
+                if (typeof this[`input_${inport}`] !== 'function')
+                    throw error(this, `method "input_${inport}" not implemented.`);
+                this[`input_${inport}`](feature);
+        }
     }
 }
 exports.Step = Step;
