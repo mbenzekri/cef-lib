@@ -372,7 +372,7 @@ abstract class Step {
     private ports: { [key: string]: Port } = {}
     private feature: any
     private state = State.idle
-    private params: any = {}
+    readonly params: any = {}
 
     // abstract start() method must be implemented by heriting classes 
     // start() is called for a step at batch ignition time when step have no input port

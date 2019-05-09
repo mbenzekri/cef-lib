@@ -158,7 +158,7 @@ declare abstract class Step {
     private ports;
     private feature;
     private state;
-    private params;
+    readonly params: any;
     abstract start(): void;
     abstract end(): void;
     /**
