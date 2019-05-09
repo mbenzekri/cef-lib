@@ -20,7 +20,7 @@ function bodyfunc(type: string, strvalue: string): string {
             break;
         case 'numbers': body = `return (\`${strvalue}\`).split(/,/).map(v => parseFloat(v))`;
             break;
-        case 'boolean': body = `return \`${strvalue ? true : false}\` === 'true' `;
+        case 'boolean': body = `return \`${strvalue}\`=== 'true' ? true : false `;
             break;
         case 'date': body = `return new Date(\`${strvalue}\`)`;
             break;

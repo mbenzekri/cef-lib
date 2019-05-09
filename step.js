@@ -25,7 +25,7 @@ function bodyfunc(type, strvalue) {
             body = `return (\`${strvalue}\`).split(/,/).map(v => parseFloat(v))`;
             break;
         case 'boolean':
-            body = `return \`${strvalue ? true : false}\` === 'true' `;
+            body = `return \`${strvalue}\`=== 'true' ? true : false `;
             break;
         case 'date':
             body = `return new Date(\`${strvalue}\`)`;
