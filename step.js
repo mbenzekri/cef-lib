@@ -194,7 +194,7 @@ class Batch {
                 const modpath = process.env.CEF_PATH + '/' + items[0];
                 module = require(modpath);
             }
-            const step = module.create(stepobj.params, this);
+            const step = module.create(stepobj.params);
             step.initparams(this.args, this.globals);
             this._steps.set(stepobj.id, step);
         });
