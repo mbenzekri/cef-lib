@@ -48,8 +48,8 @@ function paramfunc(type: string, strvalue: string): Function {
     return new Function('args', 'globals', 'params', 'feature', bodyfunc(type, strvalue));
 }
 
-const SOF = {};
-const EOF = {};
+const SOF = 'SOF';
+const EOF = 'EOF';
 
 // steps registry
 const DECLARATIONS = {}

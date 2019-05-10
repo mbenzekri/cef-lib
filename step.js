@@ -54,8 +54,8 @@ function globfunc(type, strvalue) {
 function paramfunc(type, strvalue) {
     return new Function('args', 'globals', 'params', 'feature', bodyfunc(type, strvalue));
 }
-const SOF = {};
-const EOF = {};
+const SOF = 'SOF';
+const EOF = 'EOF';
 // steps registry
 const DECLARATIONS = {};
 var PortType;
