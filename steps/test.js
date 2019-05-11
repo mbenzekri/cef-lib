@@ -12,14 +12,14 @@ const flowchart = {
             id: 'a',
             gitid: 'mbenzekri/cef-lib/steps/POJOProducer',
             params: {
-                'literal': '{a: 1, b:2, c:3 }'
+                'json': '{ "a": 1, "b": 2.5, "c": "${new Date().toISOString()}" }'
             }
         },
         {
             id: 'b',
             gitid: 'mbenzekri/cef-lib/steps/POJOProducer',
             params: {
-                'literal': '{a: 4, b:5, c:6 }'
+                'json': '{ "a": 4, "b": 5.5, "c": "${new Date().toISOString()}" }'
             }
         },
         {

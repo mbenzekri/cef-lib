@@ -10,29 +10,30 @@ function error(obj: any, message: string): any {
 }
 
 function bodyfunc(type: string, strvalue: string): string {
-    let body = `return \`${strvalue}\``;
+    const cleanstr = strvalue.replace(/\`/,'\\`')
+    let body = `return \`${cleanstr}\``;
     switch (type) {
-        case 'int': body = `return parseInt(\`${strvalue}\`,10)`;
+        case 'int': body = `return parseInt(\`${cleanstr}\`,10)`;
             break;
-        case 'ints': body = `return (\`${strvalue}\`).split(/,/).map(v => parseInt(v,10))`;
+        case 'ints': body = `return (\`${cleanstr}\`).split(/,/).map(v => parseInt(v,10))`;
             break;
-        case 'number': body = `return parseFloat(\`${strvalue}\`)`;
+        case 'number': body = `return parseFloat(\`${cleanstr}\`)`;
             break;
-        case 'numbers': body = `return (\`${strvalue}\`).split(/,/).map(v => parseFloat(v))`;
+        case 'numbers': body = `return (\`${cleanstr}\`).split(/,/).map(v => parseFloat(v))`;
             break;
-        case 'boolean': body = `return \`${strvalue}\`=== 'true' ? true : false `;
+        case 'boolean': body = `return \`${cleanstr}\`=== 'true' ? true : false `;
             break;
-        case 'date': body = `return new Date(\`${strvalue}\`)`;
+        case 'date': body = `return new Date(\`${cleanstr}\`)`;
             break;
-        case 'dates': body = `return (\`${strvalue}\`).split(/,/).map(v => new Date(v))`;
+        case 'dates': body = `return (\`${cleanstr}\`).split(/,/).map(v => new Date(v))`;
             break;
-        case 'object': body = `return new Object(${strvalue})`;
+        case 'json': body = `return JSON.parse(\`${cleanstr}\`)`;
             break;
-        case 'regexp': body = `return new RegExp(\`${strvalue}\`)`;
+        case 'regexp': body = `return new RegExp(\`${cleanstr}\`)`;
             break;
-        case 'string': body = `return \`${strvalue}\``;
+        case 'string': body = `return \`${cleanstr}\``;
             break;
-        case 'strings': body = `return (\`${strvalue}\`).split(/,/)`;
+        case 'strings': body = `return (\`${cleanstr}\`).split(/,/)`;
             break;
     }
     return body;

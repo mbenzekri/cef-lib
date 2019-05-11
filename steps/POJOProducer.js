@@ -12,9 +12,9 @@ exports.declaration = {
         }
     },
     parameters: {
-        'literal': {
+        'json': {
             desc: 'the POJO literal',
-            type: 'object',
+            type: 'json',
         },
     },
     fields: [
@@ -35,7 +35,7 @@ class POJOProducer extends cef.Step {
     }
     start() {
         this.open('object');
-        this.output("pojo", this.params.literal);
+        this.output("pojo", this.params.json);
         this.close('files');
     }
     end() {
