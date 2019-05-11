@@ -4,7 +4,7 @@
   "description": "cloud engine factory library to develop user steps",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node ./steps/test.js"
   },
   "repository": {
     "type": "git",

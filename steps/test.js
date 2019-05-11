@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const cef = require("./index");
+const cef = require("./step");
 process.env.CEF_PATH = __dirname + '/../..';
 const flowchart = {
     name: 'Pojo steps test',

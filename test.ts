@@ -1,4 +1,4 @@
-import * as cef from './index' 
+import * as cef from './step' 
 process.env.CEF_PATH = __dirname + '/../..'
 
 const flowchart: cef.Flowchart = {
