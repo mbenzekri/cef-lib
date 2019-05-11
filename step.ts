@@ -26,6 +26,8 @@ function bodyfunc(type: string, strvalue: string): string {
             break;
         case 'dates': body = `return (\`${strvalue}\`).split(/,/).map(v => new Date(v))`;
             break;
+        case 'object': body = `return new Object(${strvalue})`;
+            break;
         case 'regexp': body = `return new RegExp(\`${strvalue}\`)`;
             break;
         case 'string': body = `return \`${strvalue}\``;
@@ -241,13 +243,13 @@ class Batch {
             const locpath = (process.env.CEF_PATH || '.') + '/' + items.join('/')
             const globpath = items.join('/')
             try {
-                // for production mode modules install in node_modules
-                module = require(globpath)
+                // during dev testing this module module js file is in project "steps" directory
+                // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
+                module = require(locpath)
             } catch (e) {
                 try {
-                    // during dev testing this module module js file is in project "steps" directory
-                    // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
-                    module = require(locpath)
+                    // for production mode modules install in node_modules
+                    module = require(globpath)
                 } catch (e) {
                     error(this, `unable to locate step "${stepobj.gitid}"  module searched at ${globpath} and ${locpath} \n (did you forget process.env.CEF_PATH affectaion during dev )`)
                 }
@@ -489,19 +491,19 @@ abstract class Step {
         this.feature = feature;
         if (!this.isinport(inport)) throw error(this, `unknown input port  "${inport}".`);
         if (feature === SOF) {
-                // if start of flow and state idle start this step (change state)
-                if (!this.isidle) return
-                this.state = State.started;
-                this.start();
-                return
-        } 
+            // if start of flow and state idle start this step (change state)
+            if (!this.isidle) return
+            this.state = State.started;
+            this.start();
+            return
+        }
         if (feature === EOF) {
-                // if end of flow and state idle start this step (change state)
-                if (!this.isstarted) return
-                if (!this.outports.every(p => p.isended)) return
-                this.state = State.ended;
-                this.end();
-                return
+            // if end of flow and state idle start this step (change state)
+            if (!this.isstarted) return
+            if (!this.outports.every(p => p.isended)) return
+            this.state = State.ended;
+            this.end();
+            return
         }
         if (typeof this[`input_${inport}`] !== 'function') throw error(this, `method "input_${inport}" not implemented.`);
         this[`input_${inport}`](feature);

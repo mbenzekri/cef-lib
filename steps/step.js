@@ -33,6 +33,9 @@ function bodyfunc(type, strvalue) {
         case 'dates':
             body = `return (\`${strvalue}\`).split(/,/).map(v => new Date(v))`;
             break;
+        case 'object':
+            body = `return new Object(${strvalue})`;
+            break;
         case 'regexp':
             body = `return new RegExp(\`${strvalue}\`)`;
             break;
@@ -192,14 +195,14 @@ class Batch {
             const locpath = (process.env.CEF_PATH || '.') + '/' + items.join('/');
             const globpath = items.join('/');
             try {
-                // for production mode modules install in node_modules
-                module = require(globpath);
+                // during dev testing this module module js file is in project "steps" directory
+                // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
+                module = require(locpath);
             }
             catch (e) {
                 try {
-                    // during dev testing this module module js file is in project "steps" directory
-                    // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
-                    module = require(locpath);
+                    // for production mode modules install in node_modules
+                    module = require(globpath);
                 }
                 catch (e) {
                     error(this, `unable to locate step "${stepobj.gitid}"  module searched at ${globpath} and ${locpath} \n (did you forget process.env.CEF_PATH affectaion during dev )`);
