@@ -69,8 +69,10 @@ class Pipe {
                 })
             } else {
                 if (this._done) {
+                    // emitter closed
                     this.close(reader)
-                    return resolve(EOF)
+                    // all receivers closed
+                    if (Array.from(this._readers.values()).every(v => v.done)) return resolve(EOF)
                 }
                 // wait for a new object to be outputed
                 this._waits.push({ resolve: () => resolve(this.pop(reader)), reject })
@@ -80,9 +82,9 @@ class Pipe {
     push(item: any): Promise<void> {
         return new Promise((resolve, reject) => {
             const json = JSON.stringify(item)
-            const jsonlen = Buffer.byteLength(json)
+            const jsonlen = Buffer.byteLength(json)+1
             const len = `0000000000${jsonlen}`.slice(-10)
-            const str = len + json
+            const str = len + json + '\n'
             // we must write len+json in same call to avoid separate write du to concurrency
             fs.write(this._fd, str, this._filepos, (err, bytes) => {
                 err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to ${err.message}`)
