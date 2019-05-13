@@ -291,21 +291,13 @@ class Batch {
             const items = stepobj.gitid.split('/');
             items.shift();
             let module;
-            const devpath = (process.env.CEF_PATH || '.') + '/' + items.join('/');
             const globpath = items.join('/');
             try {
-                // during dev testing this module module js file is in project "steps" directory
-                // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
-                module = require(devpath);
+                // for production mode modules install in node_modules
+                module = require(globpath);
             }
             catch (e) {
-                try {
-                    // for production mode modules install in node_modules
-                    module = require(globpath);
-                }
-                catch (e) {
-                    error(this, `unable to locate step "${stepobj.gitid}"  module searched at ${devpath} at ${globpath} ( process.env.CEF_PATH ?)`);
-                }
+                error(this, `unable to locate step "${stepobj.gitid}"  module searched with ${globpath}`);
             }
             const step = module.create(stepobj.params);
             step.initparams(this.args, this.globals);
