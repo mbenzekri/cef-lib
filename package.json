@@ -1,10 +1,10 @@
 {
   "name": "cef-lib",
   "version": "1.0.0",
-  "description": "cloud engine factory library to develop user steps",
+  "description": "cloud engine factory library to develop user steps and batchs",
   "main": "index.js",
   "scripts": {
-    "start": "node ./steps/test.js"
+    "start": "node ./test.js"
   },
   "repository": {
     "type": "git",
@@ -17,7 +17,9 @@
   },
   "homepage": "https://github.com/mbenzekri/cef-lib#readme",
   "dependencies": {
-    "@types/node": "^12.0.0",
     "uuid": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^12.0.1"
   }
 }
