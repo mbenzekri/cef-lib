@@ -1,13 +1,126 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const uuid = require("uuid/v4");
+const fs = require("fs");
 const path = require("path");
+const os = require("os");
+let DEBUG = false;
+// async synchronisation beewteen a unique writer and multiple reader 
+// create a temporary file
+class Pipe {
+    constructor() {
+        this.tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`;
+        this._filepos = 0;
+        this._written = 0;
+        this._done = false;
+        this._readers = new Map();
+        this._waits = [];
+    }
+    readfrom(reader) {
+        this._readers.set(reader, { filepos: 0, read: 0, done: false });
+    }
+    open() {
+        try {
+            this._fd = fs.openSync(this.tmpfile, 'a+');
+        }
+        catch (e) {
+            error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to ${e.message}`);
+        }
+    }
+    closed(reader) {
+        return (reader) ? this._readers.get(reader).done : this._done;
+    }
+    close(reader) {
+        if (reader) {
+            // mark reader as done
+            this._readers.get(reader).done = true;
+        }
+        else {
+            // mark writer as done
+            this._done = true;
+        }
+        // if allcheck 
+        if (this._done && Array.from(this._readers.values()).every(reader => reader.done)) {
+            fs.closeSync(this._fd);
+        }
+    }
+    pop(reader) {
+        if (!this._readers.has(reader))
+            return;
+        const r = this._readers.get(reader);
+        const b = Buffer.alloc(10);
+        let buf = Buffer.alloc(10000);
+        return new Promise((resolve, reject) => {
+            if (r.read < this._written) {
+                fs.read(this._fd, b, 0, b.byteLength, r.filepos, (err, bytes) => {
+                    err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to ${err.message}`);
+                    r.filepos += bytes;
+                    const jsonlen = parseInt(b.toString('utf8'), 10);
+                    buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
+                    fs.read(this._fd, buf, 0, jsonlen, r.filepos, (err, bytes) => {
+                        err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to ${err.message}`);
+                        r.read++;
+                        r.filepos += bytes;
+                        const obj = JSON.parse(buf.toString('utf8', 0, jsonlen));
+                        resolve(obj);
+                    });
+                });
+            }
+            else {
+                if (this._done) {
+                    this.close(reader);
+                    return resolve(EOF);
+                }
+                // wait for a new object to be outputed
+                this._waits.push({ resolve: () => resolve(this.pop(reader)), reject });
+            }
+        });
+    }
+    push(item) {
+        return new Promise((resolve, reject) => {
+            const json = JSON.stringify(item);
+            const len = `0000000000${json.length}`.slice(-10);
+            fs.write(this._fd, len, this._filepos, (err, bytes) => {
+                err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to ${err.message}`);
+                this._filepos += bytes;
+                fs.write(this._fd, json, (err, bytes, buf) => {
+                    err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to ${err.message}`);
+                    this._written++;
+                    this._filepos += bytes;
+                    // release waiting readers
+                    const wp = this._waits;
+                    this._waits = [];
+                    wp.forEach(w => w.resolve());
+                    resolve();
+                });
+            });
+        });
+    }
+}
 function error(obj, message) {
     const e = new Error();
     const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':');
     const line = (frame.length > 1) ? frame[frame.length - 2] : '-';
     const script = path.basename(__filename);
     throw new Error(`${script}@${line}: ${obj.toString()} => ${message}`);
+}
+function debug(obj, message) {
+    if (DEBUG) {
+        const e = new Error();
+        const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':');
+        const line = (frame.length > 1) ? frame[frame.length - 2] : '-';
+        const script = path.basename(__filename);
+        console.log(`${script}@${line}: ${obj.toString()} => ${message}`);
+    }
+    return true;
 }
 function bodyfunc(type, strvalue) {
     const cleanstr = strvalue.replace(/\`/, '\\`');
@@ -16,26 +129,32 @@ function bodyfunc(type, strvalue) {
         case 'int':
             body = `return parseInt(\`${cleanstr}\`,10)`;
             break;
-        case 'ints':
+        case 'int[]':
             body = `return (\`${cleanstr}\`).split(/,/).map(v => parseInt(v,10))`;
             break;
         case 'number':
             body = `return parseFloat(\`${cleanstr}\`)`;
             break;
-        case 'numbers':
+        case 'number[]':
             body = `return (\`${cleanstr}\`).split(/,/).map(v => parseFloat(v))`;
             break;
         case 'boolean':
             body = `return \`${cleanstr}\`=== 'true' ? true : false `;
             break;
+        case 'boolean[]':
+            body = `return  (\`${cleanstr}\`).split(/,/).map(v => v === 'true' ? true : false) `;
+            break;
         case 'date':
             body = `return new Date(\`${cleanstr}\`)`;
             break;
-        case 'dates':
+        case 'date[]':
             body = `return (\`${cleanstr}\`).split(/,/).map(v => new Date(v))`;
             break;
         case 'json':
             body = `return JSON.parse(\`${cleanstr}\`)`;
+            break;
+        case 'json[]':
+            body = `const arr=JSON.parse(\`${cleanstr}\`); return Array.isArray(arr) ? arr : [arr] `;
             break;
         case 'regexp':
             body = `return new RegExp(\`${cleanstr}\`)`;
@@ -43,7 +162,7 @@ function bodyfunc(type, strvalue) {
         case 'string':
             body = `return \`${cleanstr}\``;
             break;
-        case 'strings':
+        case 'string[]':
             body = `return (\`${cleanstr}\`).split(/,/)`;
             break;
     }
@@ -59,7 +178,9 @@ function paramfunc(type, strvalue) {
     return new Function('args', 'globals', 'params', 'feature', bodyfunc(type, strvalue));
 }
 const SOF = 'SOF';
+exports.SOF = SOF;
 const EOF = 'EOF';
+exports.EOF = EOF;
 // steps registry
 const DECLARATIONS = {};
 var PortType;
@@ -72,38 +193,8 @@ var State;
     State[State["idle"] = 0] = "idle";
     State[State["started"] = 1] = "started";
     State[State["ended"] = 2] = "ended";
+    State[State["error"] = 3] = "error";
 })(State || (State = {}));
-/**
- * class for step declaration
- * use this class to declare a new kind of step for the cloud engine factory
- * @member declobj declaration
- */
-// class Declaration {
-//     declobj: DeclObj;
-//     // create a Declaration object from declaration options
-//     constructor(declobj: DeclObj) {
-//         this.declobj = declobj;
-//         DECLARATIONS[this.gitid] = this;
-//     }
-//     // get step id (universal through / github )
-//     get gitid() { return this.declobj.gitid; }
-//     // get step name
-//     get name() { return this.declobj.gitid.split(/@/)[0]; }
-//     // get github repo
-//     get repository() { return this.declobj.gitid.split(/@/)[1]; }
-//     // get step title
-//     get title() { return this.declobj.title; }
-//     // get step description
-//     get desc() { return this.declobj.desc; }
-//     // get step fields description (ngx-formly fields)
-//     get fields() { return this.declobj.fields; }
-//     // get step inputs
-//     get inputs() { return this.declobj.inputs; }
-//     // get step outputs
-//     get outputs() { return this.declobj.outputs; }
-//     // get step parameters
-//     get parameters() { return this.declobj.parameters; }
-// }
 /**
  * class defining a batch to run in cloud engine factory
  * @member batch the js plain object description
@@ -122,6 +213,12 @@ class Batch {
     get steps() { return this._steps; }
     get globals() { return this._globals; }
     get args() { return this._args; }
+    get starts() {
+        const steps = [];
+        this._steps.forEach(step => { if (step.isinitial)
+            steps.push(step); });
+        return steps;
+    }
     /**
      * the toString() legacy method
      */
@@ -215,26 +312,40 @@ class Batch {
         });
         // connect all steps 
         this._flowchart.pipes.forEach((pipeobj, i) => {
-            const step = this._steps.get(pipeobj.from) || error(this, `unknown from step "${pipeobj.from}" in flowchart pipes no ${i}`);
-            const target = this._steps.get(pipeobj.to) || error(this, `unknown to step "${pipeobj.to}" in flowchart pipes no ${i}`);
-            const outport = step.port(pipeobj.outport) || error(this, `unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
-            const inport = target.port(pipeobj.inport) || error(this, `unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
-            step.pipe(outport, inport, (f) => f);
+            const step = this._steps.get(pipeobj.from);
+            step || error(this, `unknown from step "${pipeobj.from}" in flowchart pipes no ${i}`);
+            const target = this._steps.get(pipeobj.to);
+            target || error(this, `unknown to step "${pipeobj.to}" in flowchart pipes no ${i}`);
+            const outport = step.outport(pipeobj.outport);
+            outport || error(this, `unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
+            const inport = target.inport(pipeobj.inport);
+            inport || error(this, `unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
+            step.connect(outport, inport, (f) => f);
         });
     }
     run() {
-        // start nodes without predecessor
-        try {
-            this.initargs();
-            this.initglobs();
-            this.initsteps();
-            Object.freeze(this);
-            // collect initial steps
-            this.steps.forEach((step) => step.isinitial && step.start());
-        }
-        catch (e) {
-            console.error(`Error: ${e.message}`);
-        }
+        return __awaiter(this, void 0, void 0, function* () {
+            // start nodes without predecessor
+            try {
+                debug(this, `initialising arguments`);
+                this.initargs();
+                debug(this, `initialising globals `);
+                this.initglobs();
+                debug(this, `initialising steps parameters`);
+                this.initsteps();
+                Object.freeze(this);
+                // collect initial steps an
+                debug(this, `executing all the batch's steps `);
+                let promises = [];
+                this._steps.forEach(step => {
+                    promises.push(step.exec());
+                });
+                yield Promise.all(promises);
+            }
+            catch (e) {
+                console.error(`Error: ${e.message}`);
+            }
+        });
     }
 }
 exports.Batch = Batch;
@@ -245,72 +356,67 @@ exports.Batch = Batch;
  * port state is ended after receiving EOF (end of flow feature)
  */
 class Port {
-    constructor(type, name, step) {
-        this.pipes = [];
+    constructor(name, step, capacity = 1) {
         this.state = State.idle;
-        this.type = type;
         this.name = name;
         this.step = step;
     }
-    get isinport() { return this.type === PortType.input; }
-    get isoutport() { return this.type === PortType.output; }
+    get isinput() { return false; }
+    ;
+    get isoutput() { return false; }
+    ;
     get isstarted() { return this.state === State.started; }
     get isended() { return this.state === State.ended; }
     get isidle() { return this.state === State.idle; }
-    add(pipe) {
-        this.pipes.push(pipe);
-    }
-    output(feature) {
-        this.isinport && error(this, `feature outputed in an input port "${this.name}" `);
-        if (feature === SOF && this.state === State.idle)
+    setState(feature) {
+        if (feature === SOF && this.isidle)
             this.state = State.started;
-        if (feature === EOF && this.pipes.every(p => p.state === State.ended))
+        if (feature === EOF && this.isstarted)
             this.state = State.ended;
-        this.pipes.forEach(p => p.send(feature));
-    }
-    input(feature) {
-        this.isoutport && error(this, `feature inputed in an output port "${this.name}" `);
-        if (feature === SOF && this.state === State.idle)
-            this.state = State.started;
-        if (feature === EOF && this.pipes.every(p => p.state === State.ended))
-            this.state = State.ended;
-        this.step.input(this.name, feature);
     }
 }
-/**
- * class representing link between two ports during execution phase
- * data flow through pipes from outport to inport
- * @member outport port from which data is outputed
- * @member inport: port from which data is inputed
- * @member filter: filtering function
- * @member state: execution state of the pipe (idle, started, ended)
- */
-class Pipe {
-    /**
-     * Pipe constructor
-     * @param outport: port from which data is outputed
-     * @param inport: port from which data is outputed
-     * @param filter: filtering object to filter flowing data
-     */
-    constructor(outport, inport, filter) {
-        this._state = State.idle;
-        this.outport = outport;
-        this.inport = inport;
-        this.filter = filter;
-        this._state = State.idle;
+class OutputPort extends Port {
+    constructor() {
+        super(...arguments);
+        this.fifo = new Pipe();
     }
-    get state() { return this._state; }
-    /**
-     * flow data through this pipe
-     * @param feature send feature from this.outport to this.inport
-     */
-    send(feature) {
-        if (this._state === State.idle)
-            this._state = State.started;
-        if (feature === EOF)
-            return this._state = State.ended;
-        if (!this.filter || this.filter(feature))
-            this.inport.input(feature);
+    get isoutput() { return true; }
+    put(feature) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.setState(feature);
+            if (feature === SOF)
+                return yield this.fifo.open();
+            if (feature === EOF)
+                return yield this.fifo.close();
+            yield this.fifo.push(feature);
+        });
+    }
+}
+class InputPort extends Port {
+    constructor() {
+        super(...arguments);
+        this.fifos = [];
+    }
+    get isinput() { return true; }
+    ;
+    from(fifo) {
+        fifo.readfrom(this);
+        this.fifos.push(fifo);
+    }
+    get() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let feature = EOF;
+            for (let i = 0; i < this.fifos.length; i++) {
+                if (!this.fifos[i].closed(this)) {
+                    feature = yield this.fifos[i].pop(this);
+                    if (feature === EOF)
+                        continue;
+                    break;
+                }
+            }
+            this.setState(feature);
+            return feature;
+        });
     }
 }
 /**
@@ -334,27 +440,54 @@ class Step {
      */
     constructor(decl, params) {
         this.id = uuid();
-        this.ports = {};
+        //private ports: { [key: string]: Port } = {}
+        this._inports = {};
+        this._outports = {};
         this.state = State.idle;
         this._params = {};
         this.decl = decl;
-        Object.keys(decl.inputs).forEach(name => {
-            this.ports[name] = new Port(PortType.input, name, this);
-        });
-        Object.keys(decl.outputs).forEach(name => {
-            this.ports[name] = new Port(PortType.output, name, this);
-        });
+        Object.keys(decl.inputs).forEach(name => this._inports[name] = new InputPort(name, this));
+        Object.keys(decl.outputs).forEach(name => this._outports[name] = new OutputPort(name, this));
         this._params = params;
     }
+    // abstract start() method must be implemented by heriting classes 
+    // start() is called for a step at batch ignition time when step have no input port
+    // start() is called when step receive first feature (SOF) from one of its input port
+    start() {
+        return __awaiter(this, void 0, void 0, function* () { });
+    }
+    // abstract end() method must be implemented by heriting classes 
+    // end() is called when step receive last feature (EOF) from all of its input port
+    end() {
+        return __awaiter(this, void 0, void 0, function* () { });
+    }
+    get type() { return this.decl.gitid; }
+    get paramlist() { return Object.keys(this.decl.parameters); }
+    get params() { return this._params; }
+    get isidle() { return this.state === State.idle; }
+    get isstarted() { return this.state === State.started; }
+    get isended() { return this.state === State.ended; }
+    get inports() { return Object['values'](this._inports); }
+    get outports() { return Object['values'](this._outports); }
+    get isinitial() { return this.inports.length === 0; }
+    get isfinal() { return this.outports.length === 0; }
+    outport(name) { return this._outports[name]; }
+    inport(name) { return this._inports[name]; }
+    toString() { return `[${this.decl.gitid} / ${this.id}]`; }
+    isinport(portname) { return this._inports[portname] ? true : false; }
+    isoutport(portname) { return this._outports[portname] ? true : false; }
+    port(name) { return this._inports[name] || this._outports[name]; }
+    log(message) { console.log(message); }
+    /**
+     * initialize dynamic step parameter access
+     * @param args: arguments map provided by the batch
+     * @param globals: globals map provided by the batch
+     */
     initparams(args, globals) {
         const paramsfn = {};
-        Object.keys(this._params).forEach(name => {
-            if (name in this.decl.parameters) {
-                paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name]);
-            }
-            else {
-                throw error(this, `parameter "${name}" unknown must be one of "${Object.keys(this.decl.parameters).toString()}"`);
-            }
+        this.paramlist.forEach(name => {
+            !(name in this.decl.parameters) && error(this, `parameter "${name}" unknown must be one of "${toString()}"`);
+            paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name]);
         });
         this._params = new Proxy(paramsfn, {
             get: (target, property) => {
@@ -362,24 +495,11 @@ class Step {
                     return target[property](args, globals, this._params, this.feature);
                 }
                 catch (e) {
-                    throw error(this, `error "${e.message}" when evaluating step parameter "${String(property)}"`);
+                    error(this, `error "${e.message}" when evaluating step parameter "${String(property)}"`);
                 }
             },
         });
     }
-    get params() { return this._params; }
-    get isidle() { return this.state === State.idle; }
-    get isstarted() { return this.state === State.started; }
-    get isended() { return this.state === State.ended; }
-    get inports() { return Object["values"](this.ports).filter(p => p.isinport); }
-    get outports() { return Object["values"](this.ports).filter(p => p.isoutport); }
-    get isinitial() { return Object["values"](this.ports).every(p => p.type !== PortType.input); }
-    get isfinal() { return Object["values"](this.ports).every(p => p.type !== PortType.output); }
-    toString() { return `[${this.decl.gitid} / ${this.id}]`; }
-    isinport(port) { return this.ports[port] && this.ports[port].type === PortType.input; }
-    isoutport(port) { return this.ports[port] && this.ports[port].type === PortType.output; }
-    port(name) { return this.ports[name]; }
-    log(message) { console.log(message); }
     /**
      * method to connect this step with a data pipe
      * @param outport name of the output port in this step
@@ -387,62 +507,86 @@ class Step {
      * @param target target step of the pipe (where data flow)
      * @param filter filter function for flowing data
      */
-    pipe(outport, inport, filter = f => true) {
-        const pipe = new Pipe(outport, inport, filter);
-        outport.add(pipe);
-        inport.add(pipe);
+    connect(outport, inport, filter = f => true) {
+        this.outports.indexOf(outport) >= 0 || error(this, `output port "${outport.name}" doesnt exists in this step trying to connect`);
+        inport.from(outport.fifo);
+    }
+    init() {
+        return __awaiter(this, void 0, void 0, function* () {
+            for (let i = 0; i < this.outports.length; i++) {
+                const outport = this.outports[i];
+                yield this.open(outport.name);
+            }
+        });
+    }
+    terminate() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.outports.forEach(outport => this.close(outport.name));
+        });
     }
     /**
      * method to declare output termination throw the corresponding port
      * @param name: a port name
      */
-    close(name) {
-        if (this.ports[name])
-            this.ports[name].output(EOF);
+    close(outport) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const port = this._outports[outport];
+            !port && error(this, `unknown output port  "${outport}".`);
+            return port.put(EOF);
+        });
     }
     /**
      * method to declare output starting throw the corresponding port
      * @param name: a port name
      */
-    open(name) {
-        if (this.ports[name])
-            this.ports[name].output(SOF);
+    open(outport) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const port = this._outports[outport];
+            !port && error(this, `unknown output port  "${outport}".`);
+            return yield port.put(SOF);
+        });
     }
     /**
      * method to output a feature throw the corresponding port
-     * @param {*} port: a port name
-     * @param {*} feature: the feature to output
+     * @param {string} outport: a port name
+     * @param {any} feature: the feature to output
      */
     output(outport, feature) {
-        if (!this.isoutport(outport))
-            throw error(this, `unknown output port  "${outport}".`);
-        this.ports[outport].output(feature);
+        return __awaiter(this, void 0, void 0, function* () {
+            const port = this._outports[outport];
+            !port && error(this, `unknown output port  "${outport}".`);
+            debug(this, `awaiting for output into port "${port.name} feature ${JSON.stringify(feature).substr(0, 100)}" `);
+            const result = yield port.put(feature);
+            debug(this, `feature outputed on port "${port.name} feature ${JSON.stringify(feature).substr(0, 100)}" `);
+        });
     }
-    input(inport, feature) {
-        this.feature = feature;
-        if (!this.isinport(inport))
-            throw error(this, `unknown input port  "${inport}".`);
-        if (feature === SOF) {
-            // if start of flow and state idle start this step (change state)
-            if (!this.isidle)
-                return;
-            this.state = State.started;
-            this.start();
-            return;
-        }
-        if (feature === EOF) {
-            // if end of flow and state idle start this step (change state)
-            if (!this.isstarted)
-                return;
-            if (!this.outports.every(p => p.isended))
-                return;
-            this.state = State.ended;
-            this.end();
-            return;
-        }
-        if (typeof this[`input_${inport}`] !== 'function')
-            throw error(this, `method "input_${inport}" not implemented.`);
-        this[`input_${inport}`](feature);
+    /**
+     * method to get next input feature throw the corresponding port
+     * @param {string} inport: a port name
+     */
+    input(inport) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const port = this._inports[inport];
+            !port && error(this, `unknown input port  "${inport}".`);
+            debug(this, `awaiting for input into port "${port.name} " `);
+            this.feature = yield port.get();
+            debug(this, `feature inputed on port "${port.name} feature ${JSON.stringify(this.feature).substr(0, 100)}" `);
+            return this.feature;
+        });
+    }
+    exec() {
+        return __awaiter(this, void 0, void 0, function* () {
+            debug(this, `init phase `);
+            yield this.init();
+            debug(this, `start phase `);
+            yield this.start();
+            debug(this, `doit phase `);
+            yield this.doit();
+            debug(this, `end phase `);
+            yield this.end();
+            debug(this, `terminate phase `);
+            yield this.terminate();
+        });
     }
 }
 exports.Step = Step;

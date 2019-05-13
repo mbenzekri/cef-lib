@@ -34,13 +34,8 @@ class POJOProducer extends cef.Step {
     constructor (params: cef.ParamsMap) {
         super(declaration, params)
     }
-
-    start() {
-        this.open('object')
-        this.output("pojo", this.params.json) 
-        this.close('files')
-    }
-    end() {
+    async doit() {
+        this.output("pojo", this.params.json)
     }
 }
 

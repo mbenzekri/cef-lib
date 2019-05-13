@@ -34,13 +34,12 @@ class POJOLogger extends cef.Step {
     constructor (params: cef.ParamsMap) {
         super(declaration, params)
     }
-
-    start() {
-    }
-    input_pojos(feature: any) {
-        console.log(this.params.expression)
-    }
-    end() {
+    async doit() {
+        let feature = await this.input('pojos');
+        while (feature !== cef.EOF) {
+            console.log(this.params.expression)
+            feature = await this.input('pojos');
+        } 
     }
 }
 

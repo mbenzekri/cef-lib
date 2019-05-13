@@ -38,12 +38,12 @@ class POJOFilter extends cef.Step {
         super(declaration, params)
     }
 
-    start() {
-    }
-    input_pojos(feature: any) {
-        if (this.params.test) this.output('filtered',feature)
-    }
-    end() {
+    async doit() {
+        let feature = await this.input('pojos'); 
+        while (feature !== cef.EOF) {
+            if (this.params.test) await this.output('filtered',feature)
+            feature = await this.input('pojos');
+        } 
     }
 }
 
