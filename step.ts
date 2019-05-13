@@ -318,18 +318,24 @@ class Batch {
             const items = stepobj.gitid.split('/')
             items.shift()
             let module;
-            const locpath = (process.env.CEF_PATH || '.') + '/' + items.join('/')
+            const locpath = './' + items[2]
+            const devpath = (process.env.CEF_PATH || '.') + '/' + items.join('/')
             const globpath = items.join('/')
             try {
-                // during dev testing this module module js file is in project "steps" directory
-                // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
+                // in same directory
                 module = require(locpath)
             } catch (e) {
                 try {
-                    // for production mode modules install in node_modules
-                    module = require(globpath)
+                    // during dev testing this module module js file is in project "steps" directory
+                    // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
+                    module = require(locpath)
                 } catch (e) {
-                    error(this, `unable to locate step "${stepobj.gitid}"  module searched at ${globpath} and ${locpath} \n (did you forget process.env.CEF_PATH affectaion during dev )`)
+                    try {
+                        // for production mode modules install in node_modules
+                        module = require(devpath)
+                    } catch (e) {
+                        error(this, `unable to locate step "${stepobj.gitid}"  module searched at ${devpath} at ${globpath} and ${locpath} \n (did you forget process.env.CEF_PATH affectaion during dev )`)
+                    }
                 }
             }
             const step: Step = module.create(stepobj.params)
