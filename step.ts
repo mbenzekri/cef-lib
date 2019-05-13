@@ -80,20 +80,19 @@ class Pipe {
     push(item: any): Promise<void> {
         return new Promise((resolve,reject) => {
             const json = JSON.stringify(item)
-            const len =`0000000000${json.length}`.slice(-10)
-            fs.write(this._fd,len,this._filepos, (err,bytes) => {
+            const jsonlen = Buffer.byteLength(json)
+            const len =`0000000000${jsonlen}`.slice(-10)
+            const str = len + json
+            // we must write len+json in same call to avoid separate write du to concurrency
+            fs.write(this._fd,str,this._filepos, (err,bytes) => {
                 err && error('Pipe',`unable to write tempfile "${this.tmpfile}" due to ${err.message}`)
-                this._filepos+=bytes
-                fs.write(this._fd,json, (err, bytes, buf:string) => {
-                    err && error('Pipe',`unable to write tempfile "${this.tmpfile}" due to ${err.message}`)
-                    this._written++
-                    this._filepos+=bytes
-                    // release waiting readers
-                    const wp = this._waits
-                    this._waits = []
-                    wp.forEach(w => w.resolve())
-                    resolve()
-                })
+                this._filepos+=bytes                    
+                this._written++
+                // release waiting readers
+                const wp = this._waits
+                this._waits = []
+                wp.forEach(w => w.resolve())
+                resolve()
             })
         })
     }
