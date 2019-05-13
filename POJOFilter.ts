@@ -39,10 +39,10 @@ class POJOFilter extends cef.Step {
     }
 
     async doit() {
-        let feature = await this.input('pojos'); 
-        while (feature !== cef.EOF) {
-            if (this.params.test) await this.output('filtered',feature)
-            feature = await this.input('pojos');
+        let pojo = await this.input('pojos'); 
+        while (pojo !== cef.EOF) {
+            if (this.params.test) await this.output('filtered',pojo)
+            pojo = await this.input('pojos');
         } 
     }
 }

@@ -26,14 +26,14 @@ const flowchart = {
             id: 'c',
             gitid: 'mbenzekri/cef-lib/steps/POJOFilter',
             params: {
-                'test': '${ feature.b < 5 }'
+                'test': '${ pojo.b < 5 }'
             }
         },
         {
             id: 'd',
             gitid: 'mbenzekri/cef-lib/steps/POJOLogger',
             params: {
-                'expression': '${ JSON.stringify(feature) }'
+                'expression': '${ JSON.stringify(pojo) }'
             }
         },
     ],

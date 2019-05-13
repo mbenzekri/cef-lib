@@ -175,7 +175,7 @@ function globfunc(type, strvalue) {
     return new Function('args', 'globals', bodyfunc(type, strvalue));
 }
 function paramfunc(type, strvalue) {
-    return new Function('args', 'globals', 'params', 'feature', bodyfunc(type, strvalue));
+    return new Function('args', 'globals', 'params', 'pojo', bodyfunc(type, strvalue));
 }
 const SOF = 'SOF';
 exports.SOF = SOF;
@@ -243,6 +243,8 @@ class Batch {
         process.argv.forEach((arg, i) => {
             if (i < 2)
                 return; // skip 'node.exe' and 'script.js'
+            if (arg == '--DEBUG')
+                return DEBUG = true;
             const [name, value] = arg.replace(/^--?/, '').split(/=/);
             const type = this._flowchart.args[name].type;
             if (name in this._flowchart.args) {
@@ -261,7 +263,7 @@ class Batch {
         });
     }
     initglobs() {
-        // prepare lazy evaluation of parameters for each feature
+        // prepare lazy evaluation of parameters for each pojo
         const globals = {};
         Object.keys(this._flowchart.globals).forEach(name => {
             const type = this._flowchart.globals[name].type;
@@ -352,8 +354,8 @@ exports.Batch = Batch;
 /**
  * class defining a port either an input port or an output port
  * port state is first idle
- * port state is started after receiving SOF (start of flow feature)
- * port state is ended after receiving EOF (end of flow feature)
+ * port state is started after receiving SOF (start of flow pojo)
+ * port state is ended after receiving EOF (end of flow pojo)
  */
 class Port {
     constructor(name, step, capacity = 1) {
@@ -368,10 +370,10 @@ class Port {
     get isstarted() { return this.state === State.started; }
     get isended() { return this.state === State.ended; }
     get isidle() { return this.state === State.idle; }
-    setState(feature) {
-        if (feature === SOF && this.isidle)
+    setState(pojo) {
+        if (pojo === SOF && this.isidle)
             this.state = State.started;
-        if (feature === EOF && this.isstarted)
+        if (pojo === EOF && this.isstarted)
             this.state = State.ended;
     }
 }
@@ -381,14 +383,14 @@ class OutputPort extends Port {
         this.fifo = new Pipe();
     }
     get isoutput() { return true; }
-    put(feature) {
+    put(pojo) {
         return __awaiter(this, void 0, void 0, function* () {
-            this.setState(feature);
-            if (feature === SOF)
+            this.setState(pojo);
+            if (pojo === SOF)
                 return yield this.fifo.open();
-            if (feature === EOF)
+            if (pojo === EOF)
                 return yield this.fifo.close();
-            yield this.fifo.push(feature);
+            yield this.fifo.push(pojo);
         });
     }
 }
@@ -405,17 +407,17 @@ class InputPort extends Port {
     }
     get() {
         return __awaiter(this, void 0, void 0, function* () {
-            let feature = EOF;
+            let pojo = EOF;
             for (let i = 0; i < this.fifos.length; i++) {
                 if (!this.fifos[i].closed(this)) {
-                    feature = yield this.fifos[i].pop(this);
-                    if (feature === EOF)
+                    pojo = yield this.fifos[i].pop(this);
+                    if (pojo === EOF)
                         continue;
                     break;
                 }
             }
-            this.setState(feature);
-            return feature;
+            this.setState(pojo);
+            return pojo;
         });
     }
 }
@@ -428,7 +430,7 @@ class InputPort extends Port {
  * @property batch : the batch containing this step
  * @property pipes : pipes output of this step
  * @property ports : input/output ports of this step
- * @property feature : current feature (available after first input)
+ * @property pojo : current pojo (available after first input)
  * @property params : parameters (dynamic see Proxy in constructor)
  */
 class Step {
@@ -452,12 +454,12 @@ class Step {
     }
     // abstract start() method must be implemented by heriting classes 
     // start() is called for a step at batch ignition time when step have no input port
-    // start() is called when step receive first feature (SOF) from one of its input port
+    // start() is called when step receive first pojo (SOF) from one of its input port
     start() {
         return __awaiter(this, void 0, void 0, function* () { });
     }
     // abstract end() method must be implemented by heriting classes 
-    // end() is called when step receive last feature (EOF) from all of its input port
+    // end() is called when step receive last pojo (EOF) from all of its input port
     end() {
         return __awaiter(this, void 0, void 0, function* () { });
     }
@@ -492,7 +494,7 @@ class Step {
         this._params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
-                    return target[property](args, globals, this._params, this.feature);
+                    return target[property](args, globals, this._params, this.pojo);
                 }
                 catch (e) {
                     error(this, `error "${e.message}" when evaluating step parameter "${String(property)}"`);
@@ -547,21 +549,21 @@ class Step {
         });
     }
     /**
-     * method to output a feature throw the corresponding port
+     * method to output a pojo throw the corresponding port
      * @param {string} outport: a port name
-     * @param {any} feature: the feature to output
+     * @param {any} pojo: the pojo to output
      */
-    output(outport, feature) {
+    output(outport, pojo) {
         return __awaiter(this, void 0, void 0, function* () {
             const port = this._outports[outport];
             !port && error(this, `unknown output port  "${outport}".`);
-            debug(this, `awaiting for output into port "${port.name} feature ${JSON.stringify(feature).substr(0, 100)}" `);
-            const result = yield port.put(feature);
-            debug(this, `feature outputed on port "${port.name} feature ${JSON.stringify(feature).substr(0, 100)}" `);
+            debug(this, `awaiting for output into port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `);
+            const result = yield port.put(pojo);
+            debug(this, `pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `);
         });
     }
     /**
-     * method to get next input feature throw the corresponding port
+     * method to get next input pojo throw the corresponding port
      * @param {string} inport: a port name
      */
     input(inport) {
@@ -569,9 +571,9 @@ class Step {
             const port = this._inports[inport];
             !port && error(this, `unknown input port  "${inport}".`);
             debug(this, `awaiting for input into port "${port.name} " `);
-            this.feature = yield port.get();
-            debug(this, `feature inputed on port "${port.name} feature ${JSON.stringify(this.feature).substr(0, 100)}" `);
-            return this.feature;
+            this.pojo = yield port.get();
+            debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0, 100)}" `);
+            return this.pojo;
         });
     }
     exec() {

@@ -162,7 +162,7 @@ function globfunc(type: string, strvalue: string): Function {
 }
 
 function paramfunc(type: string, strvalue: string): Function {
-    return new Function('args', 'globals', 'params', 'feature', bodyfunc(type, strvalue));
+    return new Function('args', 'globals', 'params', 'pojo', bodyfunc(type, strvalue));
 }
 
 const SOF = 'SOF';
@@ -289,7 +289,7 @@ class Batch {
     }
 
     private initglobs() {
-        // prepare lazy evaluation of parameters for each feature
+        // prepare lazy evaluation of parameters for each pojo
         const globals: any = {};
         Object.keys(this._flowchart.globals).forEach(name => {
             const type = this._flowchart.globals[name].type
@@ -379,8 +379,8 @@ class Batch {
 /**
  * class defining a port either an input port or an output port
  * port state is first idle
- * port state is started after receiving SOF (start of flow feature)
- * port state is ended after receiving EOF (end of flow feature)
+ * port state is started after receiving SOF (start of flow pojo)
+ * port state is ended after receiving EOF (end of flow pojo)
  */
 abstract class Port {
     get isinput(): boolean {return false };
@@ -397,9 +397,9 @@ abstract class Port {
         this.name = name;
         this.step = step;
     }
-    protected setState(feature: any) {
-        if (feature === SOF && this.isidle) this.state = State.started;
-        if (feature === EOF && this.isstarted) this.state = State.ended;
+    protected setState(pojo: any) {
+        if (pojo === SOF && this.isidle) this.state = State.started;
+        if (pojo === EOF && this.isstarted) this.state = State.ended;
     }
 }
 
@@ -407,11 +407,11 @@ class OutputPort extends Port {
     readonly fifo: Pipe = new Pipe()
     get isoutput(): boolean  {return true }
 
-    async put(feature: any) {
-        this.setState(feature)
-        if (feature === SOF) return await this.fifo.open()
-        if (feature === EOF) return await this.fifo.close()
-        await this.fifo.push(feature)
+    async put(pojo: any) {
+        this.setState(pojo)
+        if (pojo === SOF) return await this.fifo.open()
+        if (pojo === EOF) return await this.fifo.close()
+        await this.fifo.push(pojo)
     }
 }
 
@@ -425,16 +425,16 @@ class InputPort extends Port {
     }
 
     async get() {
-        let feature = EOF
+        let pojo = EOF
         for(let i=0;i<this.fifos.length;i++) {
             if (!this.fifos[i].closed(this)) {
-                feature = await this.fifos[i].pop(this)
-                if (feature === EOF) continue;
+                pojo = await this.fifos[i].pop(this)
+                if (pojo === EOF) continue;
                 break
             }
         }
-        this.setState(feature)
-        return feature;
+        this.setState(pojo)
+        return pojo;
     }
 }
 
@@ -447,7 +447,7 @@ class InputPort extends Port {
  * @property batch : the batch containing this step
  * @property pipes : pipes output of this step
  * @property ports : input/output ports of this step
- * @property feature : current feature (available after first input)
+ * @property pojo : current pojo (available after first input)
  * @property params : parameters (dynamic see Proxy in constructor)
  */
 abstract class Step {
@@ -457,13 +457,13 @@ abstract class Step {
     //private ports: { [key: string]: Port } = {}
     private _inports: { [key: string]: InputPort } = {}
     private _outports: { [key: string]: OutputPort } = {}
-    private feature: any
+    private pojo: any
     private state = State.idle
     private _params: any = {}
 
     // abstract start() method must be implemented by heriting classes 
     // start() is called for a step at batch ignition time when step have no input port
-    // start() is called when step receive first feature (SOF) from one of its input port
+    // start() is called when step receive first pojo (SOF) from one of its input port
     async start() {}
 
     // abstract doit() method must be implemented by heriting classes 
@@ -471,7 +471,7 @@ abstract class Step {
     abstract async doit()
 
     // abstract end() method must be implemented by heriting classes 
-    // end() is called when step receive last feature (EOF) from all of its input port
+    // end() is called when step receive last pojo (EOF) from all of its input port
     async end() {}
 
 
@@ -520,7 +520,7 @@ abstract class Step {
         this._params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
-                    return target[property](args, globals, this._params, this.feature);
+                    return target[property](args, globals, this._params, this.pojo);
                 } catch (e) {
                     error(this, `error "${e.message}" when evaluating step parameter "${String(property)}"`);
                 }
@@ -568,29 +568,29 @@ abstract class Step {
     }
 
     /**
-     * method to output a feature throw the corresponding port
+     * method to output a pojo throw the corresponding port
      * @param {string} outport: a port name
-     * @param {any} feature: the feature to output
+     * @param {any} pojo: the pojo to output
      */
-    async output(outport: string, feature: any) {
+    async output(outport: string, pojo: any) {
         const port = this._outports[outport]
         !port && error(this, `unknown output port  "${outport}".`);
-        debug(this,`awaiting for output into port "${port.name} feature ${JSON.stringify(feature).substr(0,100)}" `)
-        const result = await port.put(feature)
-        debug(this,`feature outputed on port "${port.name} feature ${JSON.stringify(feature).substr(0,100)}" `)
+        debug(this,`awaiting for output into port "${port.name} pojo ${JSON.stringify(pojo).substr(0,100)}" `)
+        const result = await port.put(pojo)
+        debug(this,`pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0,100)}" `)
     }
 
     /**
-     * method to get next input feature throw the corresponding port
+     * method to get next input pojo throw the corresponding port
      * @param {string} inport: a port name
      */
     async input(inport: string) {
         const port = this._inports[inport]
         !port && error(this, `unknown input port  "${inport}".`);
         debug(this,`awaiting for input into port "${port.name} " `)
-        this.feature = await port.get()
-        debug(this,`feature inputed on port "${port.name} feature ${JSON.stringify(this.feature).substr(0,100)}" `)
-        return this.feature
+        this.pojo = await port.get()
+        debug(this,`pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0,100)}" `)
+        return this.pojo
     }
 
     async exec() {

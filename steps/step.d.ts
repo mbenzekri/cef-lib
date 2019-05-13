@@ -98,8 +98,8 @@ declare class Batch {
 /**
  * class defining a port either an input port or an output port
  * port state is first idle
- * port state is started after receiving SOF (start of flow feature)
- * port state is ended after receiving EOF (end of flow feature)
+ * port state is started after receiving SOF (start of flow pojo)
+ * port state is ended after receiving EOF (end of flow pojo)
  */
 declare abstract class Port {
     readonly isinput: boolean;
@@ -111,12 +111,12 @@ declare abstract class Port {
     readonly isended: boolean;
     readonly isidle: boolean;
     constructor(name: string, step: Step, capacity?: number);
-    protected setState(feature: any): void;
+    protected setState(pojo: any): void;
 }
 declare class OutputPort extends Port {
     readonly fifo: Pipe;
     readonly isoutput: boolean;
-    put(feature: any): Promise<void>;
+    put(pojo: any): Promise<void>;
 }
 declare class InputPort extends Port {
     fifos: Pipe[];
@@ -133,7 +133,7 @@ declare class InputPort extends Port {
  * @property batch : the batch containing this step
  * @property pipes : pipes output of this step
  * @property ports : input/output ports of this step
- * @property feature : current feature (available after first input)
+ * @property pojo : current pojo (available after first input)
  * @property params : parameters (dynamic see Proxy in constructor)
  */
 declare abstract class Step {
@@ -141,7 +141,7 @@ declare abstract class Step {
     readonly decl: Declaration;
     private _inports;
     private _outports;
-    private feature;
+    private pojo;
     private state;
     private _params;
     start(): Promise<void>;
@@ -198,13 +198,13 @@ declare abstract class Step {
      */
     private open;
     /**
-     * method to output a feature throw the corresponding port
+     * method to output a pojo throw the corresponding port
      * @param {string} outport: a port name
-     * @param {any} feature: the feature to output
+     * @param {any} pojo: the pojo to output
      */
-    output(outport: string, feature: any): Promise<void>;
+    output(outport: string, pojo: any): Promise<void>;
     /**
-     * method to get next input feature throw the corresponding port
+     * method to get next input pojo throw the corresponding port
      * @param {string} inport: a port name
      */
     input(inport: string): Promise<any>;

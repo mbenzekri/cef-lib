@@ -11,7 +11,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const cef = require("./step");
 exports.declaration = {
     gitid: 'mbenzekri/cef-fs/steps/POJOLogger',
-    title: 'Logs features',
+    title: 'Logs pojos',
     desc: ' logs each inputed pojo through console',
     inputs: {
         'pojos': {
@@ -29,7 +29,7 @@ exports.declaration = {
         {
             key: 'expression',
             type: 'text',
-            defaultValue: '${JSON.stringify(feature)}',
+            defaultValue: '${JSON.stringify(pojo)}',
             templateOptions: {
                 label: 'expression to log',
                 required: true,
@@ -43,10 +43,10 @@ class POJOLogger extends cef.Step {
     }
     doit() {
         return __awaiter(this, void 0, void 0, function* () {
-            let feature = yield this.input('pojos');
-            while (feature !== cef.EOF) {
+            let pojo = yield this.input('pojos');
+            while (pojo !== cef.EOF) {
                 console.log(this.params.expression);
-                feature = yield this.input('pojos');
+                pojo = yield this.input('pojos');
             }
         });
     }

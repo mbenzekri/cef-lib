@@ -47,11 +47,11 @@ class POJOFilter extends cef.Step {
     }
     doit() {
         return __awaiter(this, void 0, void 0, function* () {
-            let feature = yield this.input('pojos');
-            while (feature !== cef.EOF) {
+            let pojo = yield this.input('pojos');
+            while (pojo !== cef.EOF) {
                 if (this.params.test)
-                    yield this.output('filtered', feature);
-                feature = yield this.input('pojos');
+                    yield this.output('filtered', pojo);
+                pojo = yield this.input('pojos');
             }
         });
     }

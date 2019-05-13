@@ -2,7 +2,7 @@ import * as cef from './step'
 
 export const declaration: cef.Declaration = {
     gitid: 'mbenzekri/cef-fs/steps/POJOLogger',
-    title: 'Logs features',
+    title: 'Logs pojos',
     desc: ' logs each inputed pojo through console',
     inputs: {
         'pojos': {
@@ -21,7 +21,7 @@ export const declaration: cef.Declaration = {
         {
             key: 'expression',
             type: 'text',
-            defaultValue: '${JSON.stringify(feature)}',
+            defaultValue: '${JSON.stringify(pojo)}',
             templateOptions: {
                 label: 'expression to log',
                 required: true,
@@ -35,10 +35,10 @@ class POJOLogger extends cef.Step {
         super(declaration, params)
     }
     async doit() {
-        let feature = await this.input('pojos');
-        while (feature !== cef.EOF) {
+        let pojo = await this.input('pojos');
+        while (pojo !== cef.EOF) {
             console.log(this.params.expression)
-            feature = await this.input('pojos');
+            pojo = await this.input('pojos');
         } 
     }
 }
