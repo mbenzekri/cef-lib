@@ -10,22 +10,22 @@ let DEBUG = false;
 class Pipe {
     readonly tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`
     private _fd
-    private _filepos =  0
+    private _filepos = 0
     private _written = 0
     private _done = false
-    private _readers: Map<InputPort,{ filepos: number, read: 0 , done: boolean}> = new Map()
-    private _waits: {resolve: (value?: Promise<any>) => void, reject: (reason?: any) => void }[] = []
+    private _readers: Map<InputPort, { filepos: number, read: 0, done: boolean }> = new Map()
+    private _waits: { resolve: (value?: Promise<any>) => void, reject: (reason?: any) => void }[] = []
 
 
     readfrom(reader: InputPort) {
-        this._readers.set(reader,{filepos: 0, read: 0, done: false})
+        this._readers.set(reader, { filepos: 0, read: 0, done: false })
     }
 
     open() {
-        try { 
-            this._fd = fs.openSync(this.tmpfile,'a+')
-        } catch (e) { 
-            error('Pipe',`unable to open for read/write tempfile "${this.tmpfile}" due to ${e.message}`) 
+        try {
+            this._fd = fs.openSync(this.tmpfile, 'a+')
+        } catch (e) {
+            error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to ${e.message}`)
         }
     }
     closed(reader?: InputPort) {
@@ -41,29 +41,29 @@ class Pipe {
             this._done = true;
         }
         // if allcheck 
-        if (this._done && Array.from(this._readers.values()).every(reader => reader.done )) {
+        if (this._done && Array.from(this._readers.values()).every(reader => reader.done)) {
             fs.closeSync(this._fd)
         }
     }
 
     pop(reader: InputPort): Promise<any> {
-        if (! this._readers.has(reader))  return
+        if (!this._readers.has(reader)) return
         const r = this._readers.get(reader)
         const b = Buffer.alloc(10)
         let buf = Buffer.alloc(10000)
 
-        return new Promise((resolve,reject) => {
+        return new Promise((resolve, reject) => {
             if (r.read < this._written) {
-                fs.read(this._fd,b,0,b.byteLength,r.filepos,(err,bytes) => {
-                    err && error('Pipe',`unable to read fifo "${this.tmpfile}" due to ${err.message}`)
-                    r.filepos+=bytes;
-                    const jsonlen = parseInt(b.toString('utf8'),10)
+                fs.read(this._fd, b, 0, b.byteLength, r.filepos, (err, bytes) => {
+                    err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to ${err.message}`)
+                    r.filepos += bytes;
+                    const jsonlen = parseInt(b.toString('utf8'), 10)
                     buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf
-                    fs.read(this._fd,buf,0,jsonlen,r.filepos, (err,bytes) => {
-                        err &&  error('Pipe',`unable to read tempfile "${this.tmpfile}" due to ${err.message}`)
+                    fs.read(this._fd, buf, 0, jsonlen, r.filepos, (err, bytes) => {
+                        err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to ${err.message}`)
                         r.read++
-                        r.filepos+=bytes;
-                        const obj = JSON.parse(buf.toString('utf8',0,jsonlen))
+                        r.filepos += bytes;
+                        const obj = JSON.parse(buf.toString('utf8', 0, jsonlen))
                         resolve(obj)
                     })
                 })
@@ -73,20 +73,20 @@ class Pipe {
                     return resolve(EOF)
                 }
                 // wait for a new object to be outputed
-                this._waits.push({ resolve: () => resolve(this.pop(reader)) , reject})
+                this._waits.push({ resolve: () => resolve(this.pop(reader)), reject })
             }
         })
     }
     push(item: any): Promise<void> {
-        return new Promise((resolve,reject) => {
+        return new Promise((resolve, reject) => {
             const json = JSON.stringify(item)
             const jsonlen = Buffer.byteLength(json)
-            const len =`0000000000${jsonlen}`.slice(-10)
+            const len = `0000000000${jsonlen}`.slice(-10)
             const str = len + json
             // we must write len+json in same call to avoid separate write du to concurrency
-            fs.write(this._fd,str,this._filepos, (err,bytes) => {
-                err && error('Pipe',`unable to write tempfile "${this.tmpfile}" due to ${err.message}`)
-                this._filepos+=bytes                    
+            fs.write(this._fd, str, this._filepos, (err, bytes) => {
+                err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to ${err.message}`)
+                this._filepos += bytes
                 this._written++
                 // release waiting readers
                 const wp = this._waits
@@ -119,7 +119,7 @@ function debug(obj: any, message: string): boolean {
 }
 
 function bodyfunc(type: string, strvalue: string): string {
-    const cleanstr = strvalue.replace(/\`/,'\\`')
+    const cleanstr = strvalue.replace(/\`/, '\\`')
     let body = `return \`${cleanstr}\``;
     switch (type) {
         case 'int': body = `return parseInt(\`${cleanstr}\`,10)`;
@@ -237,10 +237,10 @@ class Batch {
     get steps() { return this._steps }
     get globals() { return this._globals }
     get args() { return this._args }
-    get starts() { 
-        const steps: Step[] = []; 
-        this._steps.forEach(step => { if (step.isinitial) steps.push(step)}); 
-        return  steps 
+    get starts() {
+        const steps: Step[] = [];
+        this._steps.forEach(step => { if (step.isinitial) steps.push(step) });
+        return steps
     }
 
     /**
@@ -268,7 +268,7 @@ class Batch {
         // then process parameters
         process.argv.forEach((arg, i) => {
             if (i < 2) return; // skip 'node.exe' and 'script.js'
-            if (arg == '--DEBUG')  return DEBUG = true
+            if (arg == '--DEBUG') return DEBUG = true
             const [name, value] = arg.replace(/^--?/, '').split(/=/)
             const type = this._flowchart.args[name].type
             if (name in this._flowchart.args) {
@@ -318,24 +318,18 @@ class Batch {
             const items = stepobj.gitid.split('/')
             items.shift()
             let module;
-            const locpath = './' + items[2]
             const devpath = (process.env.CEF_PATH || '.') + '/' + items.join('/')
             const globpath = items.join('/')
             try {
-                // in same directory
-                module = require(locpath)
+                // during dev testing this module module js file is in project "steps" directory
+                // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
+                module = require(devpath)
             } catch (e) {
                 try {
-                    // during dev testing this module module js file is in project "steps" directory
-                    // ENV variable process.env.CEF_PATH is needed to locate dev "steps" path
-                    module = require(locpath)
+                    // for production mode modules install in node_modules
+                    module = require(globpath)
                 } catch (e) {
-                    try {
-                        // for production mode modules install in node_modules
-                        module = require(devpath)
-                    } catch (e) {
-                        error(this, `unable to locate step "${stepobj.gitid}"  module searched at ${devpath} at ${globpath} and ${locpath} \n (did you forget process.env.CEF_PATH affectaion during dev )`)
-                    }
+                    error(this, `unable to locate step "${stepobj.gitid}"  module searched at ${devpath} at ${globpath} ( process.env.CEF_PATH ?)`)
                 }
             }
             const step: Step = module.create(stepobj.params)
@@ -347,11 +341,11 @@ class Batch {
         this._flowchart.pipes.forEach((pipeobj, i) => {
             const step = this._steps.get(pipeobj.from)
             step || error(this, `unknown from step "${pipeobj.from}" in flowchart pipes no ${i}`);
-            const target = this._steps.get(pipeobj.to) 
+            const target = this._steps.get(pipeobj.to)
             target || error(this, `unknown to step "${pipeobj.to}" in flowchart pipes no ${i}`);
-            const outport = step.outport(pipeobj.outport) 
+            const outport = step.outport(pipeobj.outport)
             outport || error(this, `unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
-            const inport = target.inport(pipeobj.inport) 
+            const inport = target.inport(pipeobj.inport)
             inport || error(this, `unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
             step.connect(outport, inport, (f: any) => f)
         })
@@ -360,18 +354,18 @@ class Batch {
     async run() {
         // start nodes without predecessor
         try {
-            debug(this,`initialising arguments`)
+            debug(this, `initialising arguments`)
             this.initargs()
-            debug(this,`initialising globals `)
+            debug(this, `initialising globals `)
             this.initglobs()
-            debug(this,`initialising steps parameters`)
+            debug(this, `initialising steps parameters`)
             this.initsteps()
             Object.freeze(this)
             // collect initial steps an
-            debug(this,`executing all the batch's steps `)
+            debug(this, `executing all the batch's steps `)
             let promises: Promise<any>[] = []
             this._steps.forEach(step => {
-                promises.push(step.exec()) 
+                promises.push(step.exec())
             })
             await Promise.all(promises)
         } catch (e) {
@@ -388,8 +382,8 @@ class Batch {
  * port state is ended after receiving EOF (end of flow pojo)
  */
 abstract class Port {
-    get isinput(): boolean {return false };
-    get isoutput(): boolean  {return false };
+    get isinput(): boolean { return false };
+    get isoutput(): boolean { return false };
     readonly name: string;
     readonly step: Step;
     private state: State = State.idle;
@@ -398,7 +392,7 @@ abstract class Port {
     get isended() { return this.state === State.ended }
     get isidle() { return this.state === State.idle }
 
-    constructor(name: string, step: Step, capacity: number=1) {
+    constructor(name: string, step: Step, capacity: number = 1) {
         this.name = name;
         this.step = step;
     }
@@ -410,7 +404,7 @@ abstract class Port {
 
 class OutputPort extends Port {
     readonly fifo: Pipe = new Pipe()
-    get isoutput(): boolean  {return true }
+    get isoutput(): boolean { return true }
 
     async put(pojo: any) {
         this.setState(pojo)
@@ -421,17 +415,17 @@ class OutputPort extends Port {
 }
 
 class InputPort extends Port {
-    fifos: Pipe[] = [] 
-    get isinput(): boolean {return true };
+    fifos: Pipe[] = []
+    get isinput(): boolean { return true };
 
-    from(fifo:  Pipe) {
+    from(fifo: Pipe) {
         fifo.readfrom(this)
         this.fifos.push(fifo)
     }
 
     async get() {
         let pojo = EOF
-        for(let i=0;i<this.fifos.length;i++) {
+        for (let i = 0; i < this.fifos.length; i++) {
             if (!this.fifos[i].closed(this)) {
                 pojo = await this.fifos[i].pop(this)
                 if (pojo === EOF) continue;
@@ -469,7 +463,7 @@ abstract class Step {
     // abstract start() method must be implemented by heriting classes 
     // start() is called for a step at batch ignition time when step have no input port
     // start() is called when step receive first pojo (SOF) from one of its input port
-    async start() {}
+    async start() { }
 
     // abstract doit() method must be implemented by heriting classes 
     // doit() is called after start() termination
@@ -477,7 +471,7 @@ abstract class Step {
 
     // abstract end() method must be implemented by heriting classes 
     // end() is called when step receive last pojo (EOF) from all of its input port
-    async end() {}
+    async end() { }
 
 
     /**
@@ -493,21 +487,21 @@ abstract class Step {
         this._params = params;
     }
     get type() { return this.decl.gitid }
-    get paramlist() {return Object.keys(this.decl.parameters)}
+    get paramlist() { return Object.keys(this.decl.parameters) }
     get params(): any { return this._params }
     get isidle(): boolean { return this.state === State.idle }
     get isstarted(): boolean { return this.state === State.started }
     get isended(): boolean { return this.state === State.ended }
-    get inports(): InputPort[] { return Object['values'](this._inports)}
-    get outports(): OutputPort[] { return Object['values'](this._outports)}
+    get inports(): InputPort[] { return Object['values'](this._inports) }
+    get outports(): OutputPort[] { return Object['values'](this._outports) }
     get isinitial() { return this.inports.length === 0 }
     get isfinal() { return this.outports.length === 0 }
-    outport(name: string): OutputPort { return this._outports[name]}
-    inport(name: string): InputPort { return this._inports[name]}
+    outport(name: string): OutputPort { return this._outports[name] }
+    inport(name: string): InputPort { return this._inports[name] }
     toString() { return `[${this.decl.gitid} / ${this.id}]`; }
     isinport(portname: string) { return this._inports[portname] ? true : false }
     isoutport(portname: string) { return this._outports[portname] ? true : false }
-    port(name: string): Port { return this._inports[name] || this._outports[name]  }
+    port(name: string): Port { return this._inports[name] || this._outports[name] }
     log(message: string) { console.log(message) }
 
     /**
@@ -518,7 +512,7 @@ abstract class Step {
     initparams(args: any, globals: any) {
         const paramsfn = {}
         this.paramlist.forEach(name => {
-            !(name in this.decl.parameters) &&  error(this, `parameter "${name}" unknown must be one of "${toString()}"`);
+            !(name in this.decl.parameters) && error(this, `parameter "${name}" unknown must be one of "${toString()}"`);
             paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name])
         });
 
@@ -541,11 +535,11 @@ abstract class Step {
      * @param filter filter function for flowing data
      */
     connect(outport: OutputPort, inport: InputPort, filter: (f: any) => boolean = f => true) {
-        this.outports.indexOf(outport) >= 0 || error(this,`output port "${outport.name}" doesnt exists in this step trying to connect`)
+        this.outports.indexOf(outport) >= 0 || error(this, `output port "${outport.name}" doesnt exists in this step trying to connect`)
         inport.from(outport.fifo);
     }
     private async init() {
-        for(let i = 0;i<this.outports.length;i++) {
+        for (let i = 0; i < this.outports.length; i++) {
             const outport = this.outports[i]
             await this.open(outport.name)
         }
@@ -559,7 +553,7 @@ abstract class Step {
      */
     private async close(outport: string) {
         const port = this._outports[outport]
-        !port &&  error(this, `unknown output port  "${outport}".`);
+        !port && error(this, `unknown output port  "${outport}".`);
         return port.put(EOF)
     }
     /**
@@ -580,9 +574,9 @@ abstract class Step {
     async output(outport: string, pojo: any) {
         const port = this._outports[outport]
         !port && error(this, `unknown output port  "${outport}".`);
-        debug(this,`awaiting for output into port "${port.name} pojo ${JSON.stringify(pojo).substr(0,100)}" `)
+        debug(this, `awaiting for output into port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `)
         const result = await port.put(pojo)
-        debug(this,`pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0,100)}" `)
+        debug(this, `pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `)
     }
 
     /**
@@ -592,26 +586,26 @@ abstract class Step {
     async input(inport: string) {
         const port = this._inports[inport]
         !port && error(this, `unknown input port  "${inport}".`);
-        debug(this,`awaiting for input into port "${port.name} " `)
+        debug(this, `awaiting for input into port "${port.name} " `)
         this.pojo = await port.get()
-        debug(this,`pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0,100)}" `)
+        debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0, 100)}" `)
         return this.pojo
     }
 
     async exec() {
-        debug(this,`init phase `)
+        debug(this, `init phase `)
         await this.init()
-        debug(this,`start phase `)
+        debug(this, `start phase `)
         await this.start()
-        debug(this,`doit phase `)
+        debug(this, `doit phase `)
         await this.doit()
-        debug(this,`end phase `)
+        debug(this, `end phase `)
         await this.end()
-        debug(this,`terminate phase `)
+        debug(this, `terminate phase `)
         await this.terminate()
     }
 }
 
 export {
-    Declaration, Flowchart, Batch, Step, ParamsMap,SOF,EOF
+    Declaration, Flowchart, Batch, Step, ParamsMap, SOF, EOF
 };
