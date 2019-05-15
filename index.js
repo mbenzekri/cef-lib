@@ -177,7 +177,7 @@ function globfunc(type, strvalue) {
     return new Function('args', 'globals', bodyfunc(type, strvalue));
 }
 function paramfunc(type, strvalue) {
-    return new Function('args', 'globals', 'params', 'pojo', bodyfunc(type, strvalue));
+    return new Function('args', 'globs', 'params', 'pojo', bodyfunc(type, strvalue));
 }
 const SOF = 'SOF';
 exports.SOF = SOF;

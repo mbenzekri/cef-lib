@@ -82,7 +82,7 @@ class Pipe {
     push(item: any): Promise<void> {
         return new Promise((resolve, reject) => {
             const json = JSON.stringify(item)
-            const jsonlen = Buffer.byteLength(json)+1
+            const jsonlen = Buffer.byteLength(json) + 1
             const len = `0000000000${jsonlen}`.slice(-10)
             const str = len + json + '\n'
             // we must write len+json in same call to avoid separate write du to concurrency
@@ -163,7 +163,7 @@ function globfunc(type: string, strvalue: string): Function {
 }
 
 function paramfunc(type: string, strvalue: string): Function {
-    return new Function('args', 'globals', 'params', 'pojo', bodyfunc(type, strvalue));
+    return new Function('args', 'globs', 'params', 'pojo', bodyfunc(type, strvalue));
 }
 
 const SOF = 'SOF';
@@ -179,17 +179,19 @@ enum State { idle, started, ended, error }
 //enum BaseType { int, ints, number, numbers, boolean, date, dates, regexp, string, strings }
 //type BaseType = ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings')
 
-type ParamsMapDef = { [key: string]: { desc: string; type: string } };
-type PortsMap = { [key: string]: { desc: string } }
-
+type ParamsMapDef = { [key: string]: { desc: string; type: string, default: string, examples?: { value: string, desc: string }[] } };
+type InPortsMap = { [key: string]: { desc: string, expected?: PropertiesMap } }
+type OutPortsMap = { [key: string]: { desc: string, provided?: PropertiesMap } }
+type PropertiesMap = { [key: string]: { desc: string, type: string, required: boolean } }
 type Declaration = {
     gitid: string;
     title: string;
     desc: string;
+    features?: string[];
     parameters: ParamsMapDef;
-    inputs: PortsMap;
-    outputs: PortsMap;
-    fields: any[];
+    inputs: InPortsMap;
+    outputs: OutPortsMap;
+    examples?: { title: string, desc: string }[];
 }
 
 type ParamsMap = { [key: string]: string }

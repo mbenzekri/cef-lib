@@ -19,21 +19,44 @@ declare type ParamsMapDef = {
     [key: string]: {
         desc: string;
         type: string;
+        default: string;
+        examples?: {
+            value: string;
+            desc: string;
+        }[];
     };
 };
-declare type PortsMap = {
+declare type InPortsMap = {
     [key: string]: {
         desc: string;
+        expected?: PropertiesMap;
+    };
+};
+declare type OutPortsMap = {
+    [key: string]: {
+        desc: string;
+        provided?: PropertiesMap;
+    };
+};
+declare type PropertiesMap = {
+    [key: string]: {
+        desc: string;
+        type: string;
+        required: boolean;
     };
 };
 declare type Declaration = {
     gitid: string;
     title: string;
     desc: string;
+    features?: string[];
     parameters: ParamsMapDef;
-    inputs: PortsMap;
-    outputs: PortsMap;
-    fields: any[];
+    inputs: InPortsMap;
+    outputs: OutPortsMap;
+    examples?: {
+        title: string;
+        desc: string;
+    }[];
 };
 declare type ParamsMap = {
     [key: string]: string;

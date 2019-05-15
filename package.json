@@ -1,7 +1,7 @@
 {
   "name": "cef-lib",
   "version": "1.0.0",
-  "description": "cloud engine factory library to develop user steps and batchs",
+  "description": "a Pojo plugin library providing file system steps for file/directory operations",
   "main": "index.js",
   "scripts": {
     "start": "node ./test.js"

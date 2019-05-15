@@ -7,8 +7,19 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
-            "program": "${workspaceFolder}\\steps\\test.js",
+            "name": "test Program",
+            "program": "${workspaceFolder}\\test.js",
+            "preLaunchTask": "tsc: build - tsconfig.json",
+            "outFiles": [
+                "${workspaceFolder}//**/*.js"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "dogen Program",
+            "program": "${workspaceFolder}\\docgen.js",
+            "args": ["astep"],
             "preLaunchTask": "tsc: build - tsconfig.json",
             "outFiles": [
                 "${workspaceFolder}//**/*.js"
