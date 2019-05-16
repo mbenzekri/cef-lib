@@ -179,10 +179,10 @@ enum State { idle, started, ended, error }
 //enum BaseType { int, ints, number, numbers, boolean, date, dates, regexp, string, strings }
 //type BaseType = ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings')
 
-type ParamsMapDef = { [key: string]: { desc: string; type: string, default: string, examples?: { value: string, desc: string }[] } };
-type InPortsMap = { [key: string]: { desc: string, expected?: PropertiesMap } }
-type OutPortsMap = { [key: string]: { desc: string, provided?: PropertiesMap } }
-type PropertiesMap = { [key: string]: { desc: string, type: string, required: boolean } }
+type ParamsMapDef = { [key: string]: { title: string, desc?: string; type: string, default: string, examples?: { value: string, title: string, desc?: string}[] } };
+type InPortsMap = { [key: string]: { title: string, desc?: string, expected?: PropertiesMap } }
+type OutPortsMap = { [key: string]: { title: string, desc?: string, provided?: PropertiesMap } }
+type PropertiesMap = { [key: string]: { title: string, desc?: string, type: string, required: boolean } }
 type Declaration = {
     gitid: string;
     title: string;
@@ -213,6 +213,7 @@ interface PipeObj {
 type Flowchart = {
     name: string;
     title: string;
+    desc: string;
     args: TypedParamsMap;
     globals: TypedParamsMap;
     steps: StepObj[];

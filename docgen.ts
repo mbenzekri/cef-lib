@@ -31,8 +31,12 @@ steps.forEach(name => {
     const ids = decl.gitid.split(/\//)
     repository = `${ids[0]}/${ids[1]}`
 })
-fs.writeFileSync(readme,'')
-fs.appendFileSync(readme,`# ${pkg.name} : ${pkg.description}\n`)
+//fs.writeFileSync(readme,'<div style="border-width: 2px;border-color: red;border-radius: 10px">\n')
+fs.writeFileSync(readme,'\n')
+fs.appendFileSync(readme,`# ${pkg.name}${ pkg.title ? ': pkg.title' : ''}\n`)
+fs.appendFileSync(readme,`>${pkg.description}\n`)
+//fs.writeFileSync(readme,'</div>\n\n')
+
 fs.appendFileSync(readme,`# install\n\n`)
 fs.appendFileSync(readme,`>\`npm install ${repository}\`\n\n`)
 fs.appendFileSync(readme,`# included steps \n`)
@@ -63,12 +67,12 @@ steps.forEach(name => {
     const hasParams = decl.parameters && Object.keys(decl.parameters).length
     hasParams && Object.keys(decl.parameters).forEach(name => {
         const parameter = decl.parameters[name]
-        fs.appendFileSync(readme,`> **${name}**: *{${parameter.type}}* -- ${parameter.desc} [default = \`${parameter.default}\`]\n`)
+        fs.appendFileSync(readme,`> **${name}**: *{${parameter.type}}* -- ${parameter.title} [default = \`${parameter.default}\`]\n`)
         fs.appendFileSync(readme,`> \n`)
         parameter.examples && fs.appendFileSync(readme,`>| Value | Description | \n`)
         parameter.examples && fs.appendFileSync(readme,`>|-------|-------------| \n`)
         parameter.examples && parameter.examples.forEach(ex => {
-            fs.appendFileSync(readme,`>|\`${ex.value}\`| ${ex.desc} |\n`)
+            fs.appendFileSync(readme,`>|\`${ex.value}\`| ${ex.title} |\n`)
         })
         fs.appendFileSync(readme,`\n`)
     })
@@ -76,20 +80,20 @@ steps.forEach(name => {
     hasInputs && fs.appendFileSync(readme,`## inputs\n`)
     hasInputs && Object.keys(decl.inputs).forEach(name => {
         const input = decl.inputs[name]
-        fs.appendFileSync(readme,`>- **${name}** -- ${input.desc} \n`)
+        fs.appendFileSync(readme,`>- **${name}** -- ${input.title} \n`)
     })
     fs.appendFileSync(readme,`\n`)
     const hasOuputs = decl.outputs && Object.keys(decl.outputs).length
     hasOuputs && fs.appendFileSync(readme,`## outputs\n`)
     hasOuputs && Object.keys(decl.outputs).forEach(name => {
         const output = decl.outputs[name]
-        fs.appendFileSync(readme,`>- **${name}** -- ${output.desc} \n`)
+        fs.appendFileSync(readme,`>- **${name}** -- ${output.title} \n`)
     })
     const hasExamples = decl.examples && decl.examples.length
     hasExamples && fs.appendFileSync(readme,`## examples\n`)
     hasExamples && decl.examples.forEach(example => {
         fs.appendFileSync(readme,`### ${example.title}\n`)
-        fs.appendFileSync(readme,`${example.desc}\n`)
+        fs.appendFileSync(readme,`${example.title}\n`)
     })
     fs.appendFileSync(readme,`\n---\n\n`)
 })

@@ -17,30 +17,35 @@ declare const SOF = "SOF";
 declare const EOF = "EOF";
 declare type ParamsMapDef = {
     [key: string]: {
-        desc: string;
+        title: string;
+        desc?: string;
         type: string;
         default: string;
         examples?: {
             value: string;
-            desc: string;
+            title: string;
+            desc?: string;
         }[];
     };
 };
 declare type InPortsMap = {
     [key: string]: {
-        desc: string;
+        title: string;
+        desc?: string;
         expected?: PropertiesMap;
     };
 };
 declare type OutPortsMap = {
     [key: string]: {
-        desc: string;
+        title: string;
+        desc?: string;
         provided?: PropertiesMap;
     };
 };
 declare type PropertiesMap = {
     [key: string]: {
-        desc: string;
+        title: string;
+        desc?: string;
         type: string;
         required: boolean;
     };
@@ -82,6 +87,7 @@ interface PipeObj {
 declare type Flowchart = {
     name: string;
     title: string;
+    desc: string;
     args: TypedParamsMap;
     globals: TypedParamsMap;
     steps: StepObj[];
