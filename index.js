@@ -13,100 +13,26 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 let DEBUG = false;
-// async synchronisation beewteen a unique writer and multiple reader 
-// create a temporary file
-class Pipe {
-    constructor() {
-        this.tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`;
-        this._filepos = 0;
-        this._written = 0;
-        this._done = false;
-        this._readers = new Map();
-        this._waits = [];
-    }
-    readfrom(reader) {
-        this._readers.set(reader, { filepos: 0, read: 0, done: false });
-    }
-    open() {
-        try {
-            this._fd = fs.openSync(this.tmpfile, 'a+');
-        }
-        catch (e) {
-            error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to ${e.message}`);
-        }
-    }
-    closed(reader) {
-        return (reader) ? this._readers.get(reader).done : this._done;
-    }
-    close(reader) {
-        if (reader) {
-            // mark reader as done
-            this._readers.get(reader).done = true;
-        }
-        else {
-            // mark writer as done
-            this._done = true;
-        }
-        // if allcheck 
-        if (this._done && Array.from(this._readers.values()).every(reader => reader.done)) {
-            fs.closeSync(this._fd);
-        }
-    }
-    pop(reader) {
-        if (!this._readers.has(reader))
-            return;
-        const r = this._readers.get(reader);
-        const b = Buffer.alloc(10);
-        let buf = Buffer.alloc(10000);
-        return new Promise((resolve, reject) => {
-            if (r.read < this._written) {
-                fs.read(this._fd, b, 0, b.byteLength, r.filepos, (err, bytes) => {
-                    err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to ${err.message}`);
-                    r.filepos += bytes;
-                    const jsonlen = parseInt(b.toString('utf8'), 10);
-                    buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
-                    fs.read(this._fd, buf, 0, jsonlen, r.filepos, (err, bytes) => {
-                        err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to ${err.message}`);
-                        r.read++;
-                        r.filepos += bytes;
-                        const obj = JSON.parse(buf.toString('utf8', 0, jsonlen));
-                        resolve(obj);
-                    });
-                });
-            }
-            else {
-                if (this._done) {
-                    // emitter closed
-                    this.close(reader);
-                    // all receivers closed
-                    if (Array.from(this._readers.values()).every(v => v.done))
-                        return resolve(EOF);
-                }
-                // wait for a new object to be outputed
-                this._waits.push({ resolve: () => resolve(this.pop(reader)), reject });
-            }
-        });
-    }
-    push(item) {
-        return new Promise((resolve, reject) => {
-            const json = JSON.stringify(item);
-            const jsonlen = Buffer.byteLength(json) + 1;
-            const len = `0000000000${jsonlen}`.slice(-10);
-            const str = len + json + '\n';
-            // we must write len+json in same call to avoid separate write du to concurrency
-            fs.write(this._fd, str, this._filepos, (err, bytes) => {
-                err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to ${err.message}`);
-                this._filepos += bytes;
-                this._written++;
-                // release waiting readers
-                const wp = this._waits;
-                this._waits = [];
-                wp.forEach(w => w.resolve());
-                resolve();
-            });
-        });
-    }
-}
+const SOF = 'SOF';
+exports.SOF = SOF;
+const EOF = 'EOF';
+exports.EOF = EOF;
+/**
+ *  on memory step registry (Step Map)
+ */
+const DECLARATIONS = {};
+var PortType;
+(function (PortType) {
+    PortType[PortType["input"] = 0] = "input";
+    PortType[PortType["output"] = 1] = "output";
+})(PortType || (PortType = {}));
+var State;
+(function (State) {
+    State[State["idle"] = 0] = "idle";
+    State[State["started"] = 1] = "started";
+    State[State["ended"] = 2] = "ended";
+    State[State["error"] = 3] = "error";
+})(State || (State = {}));
 function error(obj, message) {
     const e = new Error();
     const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':');
@@ -179,24 +105,6 @@ function globfunc(type, strvalue) {
 function paramfunc(type, strvalue) {
     return new Function('args', 'globs', 'params', 'pojo', bodyfunc(type, strvalue));
 }
-const SOF = 'SOF';
-exports.SOF = SOF;
-const EOF = 'EOF';
-exports.EOF = EOF;
-// steps registry
-const DECLARATIONS = {};
-var PortType;
-(function (PortType) {
-    PortType[PortType["input"] = 0] = "input";
-    PortType[PortType["output"] = 1] = "output";
-})(PortType || (PortType = {}));
-var State;
-(function (State) {
-    State[State["idle"] = 0] = "idle";
-    State[State["started"] = 1] = "started";
-    State[State["ended"] = 2] = "ended";
-    State[State["error"] = 3] = "error";
-})(State || (State = {}));
 /**
  * class defining a batch to run in cloud engine factory
  * @member batch the js plain object description
@@ -345,6 +253,100 @@ class Batch {
     }
 }
 exports.Batch = Batch;
+// async synchronisation beewteen a unique writer and multiple reader 
+// create a temporary file
+class Pipe {
+    constructor() {
+        this.tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`;
+        this._filepos = 0;
+        this._written = 0;
+        this._done = false;
+        this._readers = new Map();
+        this._waits = [];
+    }
+    readfrom(reader) {
+        this._readers.set(reader, { filepos: 0, read: 0, done: false });
+    }
+    open() {
+        try {
+            this._fd = fs.openSync(this.tmpfile, 'a+');
+        }
+        catch (e) {
+            error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to ${e.message}`);
+        }
+    }
+    closed(reader) {
+        return (reader) ? this._readers.get(reader).done : this._done;
+    }
+    close(reader) {
+        if (reader) {
+            // mark reader as done
+            this._readers.get(reader).done = true;
+        }
+        else {
+            // mark writer as done
+            this._done = true;
+        }
+        // if allcheck 
+        if (this._done && Array.from(this._readers.values()).every(reader => reader.done)) {
+            fs.closeSync(this._fd);
+        }
+    }
+    pop(reader) {
+        if (!this._readers.has(reader))
+            return;
+        const r = this._readers.get(reader);
+        const b = Buffer.alloc(10);
+        let buf = Buffer.alloc(10000);
+        return new Promise((resolve, reject) => {
+            if (r.read < this._written) {
+                fs.read(this._fd, b, 0, b.byteLength, r.filepos, (err, bytes) => {
+                    err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to ${err.message}`);
+                    r.filepos += bytes;
+                    const jsonlen = parseInt(b.toString('utf8'), 10);
+                    buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
+                    fs.read(this._fd, buf, 0, jsonlen, r.filepos, (err, bytes) => {
+                        err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to ${err.message}`);
+                        r.read++;
+                        r.filepos += bytes;
+                        const obj = JSON.parse(buf.toString('utf8', 0, jsonlen));
+                        resolve(obj);
+                    });
+                });
+            }
+            else {
+                if (this._done) {
+                    // emitter closed
+                    this.close(reader);
+                    // all receivers closed
+                    if (Array.from(this._readers.values()).every(v => v.done))
+                        return resolve(EOF);
+                }
+                // wait for a new object to be outputed
+                this._waits.push({ resolve: () => resolve(this.pop(reader)), reject });
+            }
+        });
+    }
+    push(item) {
+        return new Promise((resolve, reject) => {
+            const json = JSON.stringify(item);
+            const jsonlen = Buffer.byteLength(json) + 1;
+            const len = `0000000000${jsonlen}`.slice(-10);
+            const str = len + json + '\n';
+            // we must write len+json in same call to avoid separate write du to concurrency
+            fs.write(this._fd, str, this._filepos, (err, bytes) => {
+                err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to ${err.message}`);
+                this._filepos += bytes;
+                this._written++;
+                // release waiting readers
+                const wp = this._waits;
+                this._waits = [];
+                wp.forEach(w => w.resolve());
+                resolve();
+            });
+        });
+    }
+}
 /**
  * class defining a port either an input port or an output port
  * port state is first idle
@@ -474,6 +476,7 @@ class Step {
     isoutport(portname) { return this._outports[portname] ? true : false; }
     port(name) { return this._inports[name] || this._outports[name]; }
     log(message) { console.log(message); }
+    error(message) { error(this, message); }
     /**
      * initialize dynamic step parameter access
      * @param args: arguments map provided by the batch

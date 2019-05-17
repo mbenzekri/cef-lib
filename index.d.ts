@@ -1,20 +1,18 @@
-declare class Pipe {
-    readonly tmpfile: string;
-    private _fd;
-    private _filepos;
-    private _written;
-    private _done;
-    private _readers;
-    private _waits;
-    readfrom(reader: InputPort): void;
-    open(): void;
-    closed(reader?: InputPort): boolean;
-    close(reader?: InputPort): void;
-    pop(reader: InputPort): Promise<any>;
-    push(item: any): Promise<void>;
-}
 declare const SOF = "SOF";
 declare const EOF = "EOF";
+declare type Declaration = {
+    gitid: string;
+    title: string;
+    desc: string;
+    features?: string[];
+    parameters: ParamsMapDef;
+    inputs: InPortsMap;
+    outputs: OutPortsMap;
+    examples?: {
+        title: string;
+        desc: string;
+    }[];
+};
 declare type ParamsMapDef = {
     [key: string]: {
         title: string;
@@ -32,14 +30,14 @@ declare type InPortsMap = {
     [key: string]: {
         title: string;
         desc?: string;
-        expected?: PropertiesMap;
+        properties?: PropertiesMap;
     };
 };
 declare type OutPortsMap = {
     [key: string]: {
         title: string;
         desc?: string;
-        provided?: PropertiesMap;
+        properties?: PropertiesMap;
     };
 };
 declare type PropertiesMap = {
@@ -47,21 +45,7 @@ declare type PropertiesMap = {
         title: string;
         desc?: string;
         type: string;
-        required: boolean;
     };
-};
-declare type Declaration = {
-    gitid: string;
-    title: string;
-    desc: string;
-    features?: string[];
-    parameters: ParamsMapDef;
-    inputs: InPortsMap;
-    outputs: OutPortsMap;
-    examples?: {
-        title: string;
-        desc: string;
-    }[];
 };
 declare type ParamsMap = {
     [key: string]: string;
@@ -123,6 +107,21 @@ declare class Batch {
      */
     private initsteps;
     run(): Promise<void>;
+}
+declare class Pipe {
+    readonly tmpfile: string;
+    private _fd;
+    private _filepos;
+    private _written;
+    private _done;
+    private _readers;
+    private _waits;
+    readfrom(reader: InputPort): void;
+    open(): void;
+    closed(reader?: InputPort): boolean;
+    close(reader?: InputPort): void;
+    pop(reader: InputPort): Promise<any>;
+    push(item: any): Promise<void>;
 }
 /**
  * class defining a port either an input port or an output port
@@ -200,6 +199,7 @@ declare abstract class Step {
     isoutport(portname: string): boolean;
     port(name: string): Port;
     log(message: string): void;
+    error(message: string): void;
     /**
      * initialize dynamic step parameter access
      * @param args: arguments map provided by the batch

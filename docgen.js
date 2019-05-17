@@ -33,7 +33,7 @@ steps.forEach(name => {
 });
 //fs.writeFileSync(readme,'<div style="border-width: 2px;border-color: red;border-radius: 10px">\n')
 fs.writeFileSync(readme, '\n');
-fs.appendFileSync(readme, `# ${pkg.name}${pkg.title ? ': pkg.title' : ''}\n`);
+fs.appendFileSync(readme, `# ${pkg.name}${pkg.title ? ': ' + pkg.title : ''}\n`);
 fs.appendFileSync(readme, `>${pkg.description}\n`);
 //fs.writeFileSync(readme,'</div>\n\n')
 fs.appendFileSync(readme, `# install\n\n`);
@@ -43,14 +43,14 @@ steps.forEach(name => {
     const decl = decls[name];
     const ids = decl.gitid.split(/\//);
     const classname = ids[3];
-    fs.appendFileSync(readme, `>- [${name}](#${classname.toLowerCase()}) : ${decl.title}\n`);
+    fs.appendFileSync(readme, `>- [${name}](#${(classname + ' ' + decl.title).toLowerCase().replace(/ +/g, '-')}) : ${decl.title}\n`);
 });
 fs.appendFileSync(readme, `---\n`);
 steps.forEach(name => {
     const decl = decls[name];
     const ids = decl.gitid.split(/\//);
     const classname = ids[3];
-    fs.appendFileSync(readme, `# ${classname} : ${decl.title}\n`);
+    fs.appendFileSync(readme, `# ${classname} ${decl.title}\n`);
     fs.appendFileSync(readme, `>\n\n`);
     fs.appendFileSync(readme, `## goal\n\n`);
     fs.appendFileSync(readme, `>${decl.desc}\n`);
@@ -62,7 +62,7 @@ steps.forEach(name => {
     const hasParams = decl.parameters && Object.keys(decl.parameters).length;
     hasParams && Object.keys(decl.parameters).forEach(name => {
         const parameter = decl.parameters[name];
-        fs.appendFileSync(readme, `> **${name}**: *{${parameter.type}}* -- ${parameter.title} [default = \`${parameter.default}\`]\n`);
+        fs.appendFileSync(readme, `> **${name}** *{${parameter.type}}* -- ${parameter.title}  -- default = \`${parameter.default}\`\n`);
         fs.appendFileSync(readme, `> \n`);
         parameter.examples && fs.appendFileSync(readme, `>| Value | Description | \n`);
         parameter.examples && fs.appendFileSync(readme, `>|-------|-------------| \n`);
@@ -76,6 +76,11 @@ steps.forEach(name => {
     hasInputs && Object.keys(decl.inputs).forEach(name => {
         const input = decl.inputs[name];
         fs.appendFileSync(readme, `>- **${name}** -- ${input.title} \n`);
+        input.properties && fs.appendFileSync(readme, `>> expected properties: \n`);
+        input.properties && Object.keys(input.properties).forEach(name => {
+            const property = input.properties[name];
+            fs.appendFileSync(readme, `>> **${name}** *{${property.type}}* -- ${property.title}\n`);
+        });
     });
     fs.appendFileSync(readme, `\n`);
     const hasOuputs = decl.outputs && Object.keys(decl.outputs).length;
@@ -83,6 +88,11 @@ steps.forEach(name => {
     hasOuputs && Object.keys(decl.outputs).forEach(name => {
         const output = decl.outputs[name];
         fs.appendFileSync(readme, `>- **${name}** -- ${output.title} \n`);
+        output.properties && fs.appendFileSync(readme, `>> expected properties: \n`);
+        output.properties && Object.keys(output.properties).forEach(name => {
+            const property = output.properties[name];
+            fs.appendFileSync(readme, `>> **${name}** *{${property.type}}* -- ${property.title}\n`);
+        });
     });
     const hasExamples = decl.examples && decl.examples.length;
     hasExamples && fs.appendFileSync(readme, `## examples\n`);

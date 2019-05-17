@@ -7,17 +7,17 @@ export const declaration: cef.Declaration = {
     inputs: {
         'inpojos': {
             title: 'it is a pojo input port for doing many things ...',
-            expected: {
-                '<propnameA>': { type: 'string', title: 'this is an expected property', required: false },
+            properties: {
+                '<propnameA>': { type: 'string', title: 'this is an expected property' },
             }
         }
     },
     outputs: {
         'outpojos': {
             title: 'outputed pojos produced by the step processing...',
-            provided: {
-                '<propnameB>': { type: 'string', title: 'this is a provided property', required: false },
-                '<propnameD>': { type: 'int', title: 'this is an other provided property', required: false },
+            properties: {
+                '<propnameB>': { type: 'string', title: 'this is a provided property' },
+                '<propnameD>': { type: 'int', title: 'this is an other provided property' },
             }
         },
     },
