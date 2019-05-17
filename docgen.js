@@ -79,7 +79,7 @@ steps.forEach(name => {
         input.properties && fs.appendFileSync(readme, `>> expected properties: \n`);
         input.properties && Object.keys(input.properties).forEach(name => {
             const property = input.properties[name];
-            fs.appendFileSync(readme, `>> **${name}** *{${property.type}}* -- ${property.title}\n`);
+            fs.appendFileSync(readme, `>>- **${name}** *{${property.type}}* -- ${property.title}\n`);
         });
     });
     fs.appendFileSync(readme, `\n`);
@@ -88,12 +88,13 @@ steps.forEach(name => {
     hasOuputs && Object.keys(decl.outputs).forEach(name => {
         const output = decl.outputs[name];
         fs.appendFileSync(readme, `>- **${name}** -- ${output.title} \n`);
-        output.properties && fs.appendFileSync(readme, `>> expected properties: \n`);
+        output.properties && fs.appendFileSync(readme, `>> provided properties: \n`);
         output.properties && Object.keys(output.properties).forEach(name => {
             const property = output.properties[name];
-            fs.appendFileSync(readme, `>> **${name}** *{${property.type}}* -- ${property.title}\n`);
+            fs.appendFileSync(readme, `>>- **${name}** *{${property.type}}* -- ${property.title}\n`);
         });
     });
+    fs.appendFileSync(readme, `\n`);
     const hasExamples = decl.examples && decl.examples.length;
     hasExamples && fs.appendFileSync(readme, `## examples\n`);
     hasExamples && decl.examples.forEach(example => {
