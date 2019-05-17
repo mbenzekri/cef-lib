@@ -69,7 +69,7 @@ interface PipeObj {
     inport: string;
 }
 declare type Flowchart = {
-    name: string;
+    id: string;
     title: string;
     desc: string;
     args: TypedParamsMap;
@@ -94,10 +94,6 @@ declare class Batch {
     readonly steps: Map<string, Step>;
     readonly globals: any;
     readonly args: any;
-    readonly starts: Step[];
-    /**
-     * the toString() legacy method
-     */
     toString(): string;
     private initargs;
     private initglobs;

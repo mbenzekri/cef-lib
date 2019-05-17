@@ -12,7 +12,8 @@ const EOF = 'EOF';
 /**
  *  on memory step registry (Step Map)
  */ 
-const DECLARATIONS: { [key:string] : Step} = {}
+type StepModule = { create: (params: ParamsMap) => Step; }
+const DECLARATIONS: { [key:string] : StepModule} = {}
 
 type Declaration = {
     gitid: string;
@@ -53,7 +54,7 @@ interface PipeObj {
 }
 
 type Flowchart = {
-    name: string;
+    id: string;
     title: string;
     desc: string;
     args: TypedParamsMap;
@@ -148,18 +149,8 @@ class Batch {
     get steps() { return this._steps }
     get globals() { return this._globals }
     get args() { return this._args }
-    get starts() {
-        const steps: Step[] = [];
-        this._steps.forEach(step => { if (step.isinitial) steps.push(step) });
-        return steps
-    }
-
-    /**
-     * the toString() legacy method
-     */
-    toString() { return `[${this._flowchart.name}]`; }
-
-
+    toString() { return `[${this._flowchart.id}/${this._flowchart.title}]`; }
+    
     private initargs() {
         const argv: any = {};
         // default value in batch declaration
@@ -225,16 +216,19 @@ class Batch {
     private initsteps() {
         // construct all steps 
         this._flowchart.steps.forEach(stepobj => {
-            // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
-            const items = stepobj.gitid.split('/')
-            items.shift()
-            let module;
-            const globpath = items.join('/')
-            try {
-                // for production mode modules install in node_modules
-                module = require(globpath)
-            } catch (e) {
-                error(this, `unable to locate step "${stepobj.gitid}"  module searched with ${globpath}`)
+            let module: StepModule ;
+            module = DECLARATIONS[stepobj.gitid]
+            if (!module) {
+                // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
+                const items = stepobj.gitid.split('/')
+                items.shift()
+                const globpath = items.join('/')
+                try {
+                    // for production mode modules install in node_modules
+                    module = require(globpath)
+                } catch (e) {
+                    error(this, `unable to locate step "${stepobj.gitid}"  module searched with ${globpath}`)
+                }
             }
             const step: Step = module.create(stepobj.params)
             step.initparams(this.args, this.globals)
