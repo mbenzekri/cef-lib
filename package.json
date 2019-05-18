@@ -1,28 +1,29 @@
 {
-  "name": "pojoe",
-  "version": "1.0.0",
-  "description": "the Pojoe (Pojo Engine) main library for developping pluggable Pojoe steps ",
-  "main": "test.js",
-  "scripts": {
-    "build": "tsc",
-    "pretest": "tsc",
-    "test": "node ./test.js",
-    "doc": "echo dont_do_doc_run_command_it_will_crush_the_current_readme"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mbenzekri/pojoe.git"
-  },
-  "author": "Mohamed Ben Zekri",
-  "license": "UNLICENSED",
-  "bugs": {
-    "url": "https://github.com/mbenzekri/pojoe/issues"
-  },
-  "homepage": "https://github.com/mbenzekri/pojoe#readme",
-  "dependencies": {
-    "uuid": "^3.3.2"
-  },
-  "devDependencies": {
-    "@types/node": "^12.0.1"
-  }
+    "name": "pojoe",
+    "version": "1.0.0",
+    "description": "the Pojoe (Pojo Engine) main library for developping pluggable Pojoe steps ",
+    "main": "node ./test.js",
+    "scripts": {
+        "prebuild": "echo no prebuild.",
+        "build": "tsc",
+        "pretest": "tsc",
+        "test": "node ./test.js",
+        "doc": "echo dont_do_doc_run_command_it_will_crush_the_current_readme"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mbenzekri/pojoe.git"
+    },
+    "author": "Mohamed Ben Zekri",
+    "license": "UNLICENSED",
+    "bugs": {
+        "url": "https://github.com/mbenzekri/pojoe/issues"
+    },
+    "homepage": "https://github.com/mbenzekri/pojoe#readme",
+    "dependencies": {
+        "uuid": "^3.3.2"
+    },
+    "devDependencies": {
+        "@types/node": "^12.0.1"
+    }
 }
