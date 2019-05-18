@@ -1,21 +1,23 @@
 {
-  "name": "cef-lib",
+  "name": "pes-lib",
   "version": "1.0.0",
-  "description": "a Pojo plugin library providing file system steps for file/directory operations",
+  "description": "the Pojo Engine Factory (shorter Pojoe) main library for developping pluggable Pojoe steps ",
   "main": "index.js",
   "scripts": {
-    "start": "node ./test.js"
+    "build": "tsc",
+    "test": "to_be_done",
+    "doc": "dont_do_doc_run_command_it_will_crush_the_current_readme"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mbenzekri/cef-lib.git"
+    "url": "git+https://github.com/mbenzekri/pes-lib.git"
   },
   "author": "Mohamed Ben Zekri",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/mbenzekri/cef-lib/issues"
+    "url": "https://github.com/mbenzekri/pes-lib/issues"
   },
-  "homepage": "https://github.com/mbenzekri/cef-lib#readme",
+  "homepage": "https://github.com/mbenzekri/pes-lib#readme",
   "dependencies": {
     "uuid": "^3.3.2"
   },
