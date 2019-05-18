@@ -181,10 +181,14 @@ class Batch {
         process.argv.forEach((arg, i) => {
             if (i < 2) return; // skip 'node.exe' and 'script.js'
             if (arg == '--DEBUG') return DEBUG = true
-            const [name, value] = arg.replace(/^--?/, '').split(/=/)
-            const type = this._flowchart.args[name].type
-            if (name in this._flowchart.args) {
-                this._args[name] = argfunc(type, value);
+            if (/^--.*==.*$/.test(arg)) {
+                const [name, value] = arg.replace(/^--?/, '').split(/=/)
+                if (this._flowchart.args[name]) {
+                    const type = this._flowchart.args[name].type
+                    if (name in this._flowchart.args) {
+                        this._args[name] = argfunc(type, value);
+                    }    
+                }
             }
         })
         this._args = new Proxy(argv, {

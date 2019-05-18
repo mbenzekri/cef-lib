@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "pretest": "tsc",
-    "test": "node .\test.js",
+    "test": "node ./test.js",
     "doc": "echo dont_do_doc_run_command_it_will_crush_the_current_readme"
   },
   "repository": {

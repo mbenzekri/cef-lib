@@ -63,7 +63,7 @@ const tests: Testlist = [
             { a_number: 2 },
             { a_number: 3 },
         ]},
-        expected: { 'filtered': [] },
+        expected: {},
     },
 ]
 

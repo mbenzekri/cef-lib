@@ -58,7 +58,7 @@ const tests = [
                 { a_number: 2 },
                 { a_number: 3 },
             ] },
-        expected: { 'filtered': [] },
+        expected: {},
     },
 ];
 index_1.Testbed.run(tests);
