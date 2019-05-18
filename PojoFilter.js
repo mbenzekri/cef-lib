@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const pe = require("./pojoe");
 const declaration = {
-    gitid: 'mbenzekri/cef-js/steps/POJOFilter',
+    gitid: 'mbenzekri/pojoe/steps/PojoFilter',
     title: 'filter pojos',
     desc: ' filter each inputed pojo with boolean expression',
     inputs: {

@@ -2,22 +2,22 @@
   "name": "pojoe",
   "version": "1.0.0",
   "description": "the Pojoe (Pojo Engine) main library for developping pluggable Pojoe steps ",
-  "main": "index.js",
+  "main": "test.js",
   "scripts": {
     "build": "tsc",
     "test": "to_be_done",
-    "doc": "dont_do_doc_run_command_it_will_crush_the_current_readme"
+    "doc": "echo dont_do_doc_run_command_it_will_crush_the_current_readme"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mbenzekri/pes-lib.git"
+    "url": "git+https://github.com/mbenzekri/pojoe.git"
   },
   "author": "Mohamed Ben Zekri",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/mbenzekri/pes-lib/issues"
+    "url": "https://github.com/mbenzekri/pojoe/issues"
   },
-  "homepage": "https://github.com/mbenzekri/pes-lib#readme",
+  "homepage": "https://github.com/mbenzekri/pojoe#readme",
   "dependencies": {
     "uuid": "^3.3.2"
   },

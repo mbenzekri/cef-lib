@@ -1,8 +1,8 @@
-# pes-lib
+# pojoe
     this is the Pojo Engine (shorter Pojoe) main library providing file system steps for file/directory operations
     
 # install: 
-    npm install mbenzekri/pes-js
+    npm install mbenzekri/pojoe
 
 ## goal
 

@@ -1,7 +1,7 @@
 import * as pe from './pojoe'
 
 const declaration: pe.Declaration = {
-    gitid: 'mbenzekri/cef-js/steps/POJOFilter',
+    gitid: 'mbenzekri/pojoe/steps/PojoFilter',
     title: 'filter pojos',
     desc: ' filter each inputed pojo with boolean expression',
     inputs: {

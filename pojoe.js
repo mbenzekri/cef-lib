@@ -604,7 +604,7 @@ class TestbedOutput extends Step {
     }
 }
 TestbedOutput.decl = {
-    gitid: 'mbenzekri/pes-js/steps/TestbedOutput',
+    gitid: 'mbenzekri/pojoe/steps/TestbedOutput',
     title: 'output a pojos to the tested step',
     desc: 'this step inject all the test pojos into the tested step',
     inputs: {},
@@ -645,7 +645,7 @@ class TestbedInput extends Step {
     }
 }
 TestbedInput.decl = {
-    gitid: 'mbenzekri/pes-js/steps/PojoTestInput',
+    gitid: 'mbenzekri/pojoe/steps/PojoTestInput',
     title: 'get pojos from the tested step and validate',
     desc: 'this step receives all the pojos of the tested step and validate them among the expected data',
     inputs: { /* to be dynamicaly created at test initialisation */},
@@ -664,8 +664,8 @@ class Testbed extends Batch {
     static pipes(stepid) {
         const outpipes = Object.keys(DECLARATIONS[stepid].declaration.inputs).map(inport => ({ from: 'testinjector', outport: inport, to: 'teststep', inport: inport }));
         const inpipes = Object.keys(DECLARATIONS[stepid].declaration.outputs).map(outport => ({ from: 'teststep', outport: outport, to: 'testvalidator', inport: outport }));
-        const TestbedOutputdecl = DECLARATIONS['mbenzekri/pes-js/steps/TestbedOutput'].declaration;
-        const TestbedInputdecl = DECLARATIONS['mbenzekri/pes-js/steps/TestbedInput'].declaration;
+        const TestbedOutputdecl = DECLARATIONS['mbenzekri/pojoe/steps/TestbedOutput'].declaration;
+        const TestbedInputdecl = DECLARATIONS['mbenzekri/pojoe/steps/TestbedInput'].declaration;
         TestbedOutputdecl.outputs = Object.keys(DECLARATIONS[stepid].declaration.inputs).reduce((prev, port) => {
             prev[port] = { title: 'dynamic ouput test port' };
             return prev;
@@ -678,9 +678,9 @@ class Testbed extends Batch {
     }
     static steps(stepid, params) {
         return [
-            { id: 'testinjector', gitid: 'mbenzekri/pes-js/steps/TestbedOutput', params: {} },
+            { id: 'testinjector', gitid: 'mbenzekri/pojoe/steps/TestbedOutput', params: {} },
             { id: 'teststep', gitid: stepid, params: params },
-            { id: 'testvalidator', gitid: 'mbenzekri/pes-js/steps/TestbedOutput', params: {} },
+            { id: 'testvalidator', gitid: 'mbenzekri/pojoe/steps/TestbedOutput', params: {} },
         ];
     }
     constructor(stepid, testcase) {

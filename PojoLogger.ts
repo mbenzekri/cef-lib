@@ -1,7 +1,7 @@
 import * as pe from './pojoe'
 
 const declaration: pe.Declaration = {
-    gitid: 'mbenzekri/cef-js/steps/POJOLogger',
+    gitid: 'mbenzekri/pojoe/steps/PojoLogger',
     title: 'Logs pojos',
     desc: ' logs each inputed pojo through console',
     inputs: {

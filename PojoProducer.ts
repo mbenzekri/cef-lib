@@ -1,7 +1,7 @@
 import * as pe from './pojoe'
 
 const declaration: pe.Declaration = {
-    gitid: 'mbenzekri/pes-js/steps/PojoProducer',
+    gitid: 'mbenzekri/pojoe/steps/PojoProducer',
     title: 'output a pojo',
     desc: 'this step emit one pojo provided in a parameter object literal expression',
     inputs: { },

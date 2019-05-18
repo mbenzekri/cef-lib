@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const pe = require("./pojoe");
 const declaration = {
-    gitid: 'mbenzekri/pes-js/steps/PojoProducer',
+    gitid: 'mbenzekri/pojoe/steps/PojoProducer',
     title: 'output a pojo',
     desc: 'this step emit one pojo provided in a parameter object literal expression',
     inputs: {},

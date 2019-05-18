@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const pe = require("./pojoe");
 const declaration = {
-    gitid: 'mbenzekri/cef-js/steps/POJOLogger',
+    gitid: 'mbenzekri/pojoe/steps/PojoLogger',
     title: 'Logs pojos',
     desc: ' logs each inputed pojo through console',
     inputs: {
