@@ -64,6 +64,7 @@ type Flowchart = {
 
 type TestData = { [key: string]: any[] }
 type Testcase = {
+    stepid: string;
     title: string;
     params: ParamsMap;
     injected: TestData;
@@ -261,7 +262,6 @@ class Batch {
 
     async run() {
         // start nodes without predecessor
-        try {
             debug(this, `initialising arguments`)
             this.initargs()
             debug(this, `initialising globals `)
@@ -276,9 +276,6 @@ class Batch {
                 promises.push(step.exec())
             })
             await Promise.all(promises)
-        } catch (e) {
-            console.error(`Error: ${e.message}`)
-        }
     }
 }
 
@@ -522,7 +519,7 @@ abstract class Step {
         const paramsfn = {}
         this.paramlist.forEach(name => {
             !(name in this.decl.parameters) && error(this, `unknown parameter "${name}" it must be one of "${toString()}"`);
-            paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name])
+            paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name] || this.decl.parameters[name].default)
         });
 
         this._params = new Proxy(paramsfn, {
@@ -648,7 +645,7 @@ class TestbedOutput extends Step {
 
 class TestbedInput extends Step {
     static readonly decl: Declaration = {
-        gitid: 'mbenzekri/pojoe/steps/PojoTestInput',
+        gitid: 'mbenzekri/pojoe/steps/TestbedInput',
         title: 'get pojos from the tested step and validate',
         desc: 'this step receives all the pojos of the tested step and validate them among the expected data',
         inputs: {/* to be dynamicaly created at test initialisation */ },
@@ -675,8 +672,8 @@ class TestbedInput extends Step {
         // checks equality with expected pojos 
         const dataval = this.params.dataforvalidation
         for (let input in dataval) {
-            const resdata = result[input]
-            const expected = dataval[input]
+            const resdata = result[input] || []
+            const expected = dataval[input] || []
             // test if resdata in expected (same order)
             const equals1 = resdata.every((pojo, i) => JSON.stringify(pojo) === JSON.stringify(expected[i]))
             // test if resdata in expected
@@ -695,8 +692,8 @@ Step.Register(TestbedInput.decl, (params: ParamsMap): Step => new TestbedInput()
 
 class Testbed extends Batch {
     static pipes(stepid: string): PipeObj[] {
-        const outpipes = Object.keys(DECLARATIONS[stepid].declaration.inputs).map(inport => <PipeObj>{ from: 'testinjector', outport: inport, to: 'teststep', inport: inport })
-        const inpipes = Object.keys(DECLARATIONS[stepid].declaration.outputs).map(outport => <PipeObj>{ from: 'teststep', outport: outport, to: 'testvalidator', inport: outport })
+        const outpipes = Object.keys(DECLARATIONS[stepid].declaration.inputs).map(inport => <PipeObj>{ from: 'testbedoutput', outport: inport, to: 'testtostep', inport: inport })
+        const inpipes = Object.keys(DECLARATIONS[stepid].declaration.outputs).map(outport => <PipeObj>{ from: 'testtostep', outport: outport, to: 'testbedinput', inport: outport })
 
         const TestbedOutputdecl = DECLARATIONS['mbenzekri/pojoe/steps/TestbedOutput'].declaration
         const TestbedInputdecl = DECLARATIONS['mbenzekri/pojoe/steps/TestbedInput'].declaration
@@ -712,27 +709,38 @@ class Testbed extends Batch {
     }
     static steps(stepid: string, params: ParamsMap): StepObj[] {
         return [
-            { id: 'testinjector', gitid: 'mbenzekri/pojoe/steps/TestbedOutput', params: {} },
-            { id: 'teststep', gitid: stepid, params: params },
-            { id: 'testvalidator', gitid: 'mbenzekri/pojoe/steps/TestbedOutput', params: {} },
+            { id: 'testbedoutput', gitid: 'mbenzekri/pojoe/steps/TestbedOutput', params: {} },
+            { id: 'testtostep', gitid: stepid, params: params },
+            { id: 'testbedinput', gitid: 'mbenzekri/pojoe/steps/TestbedInput', params: {} },
         ]
     }
-    constructor(stepid: string, testcase: Testcase) {
+    constructor(testcase: Testcase) {
         super({
             id: uuid(),
-            title: `Testbed for step : ${stepid}`,
-            desc: `Testbed for step : ${stepid}`,
+            title: `Testbed for step : ${testcase.stepid}`,
+            desc: `Testbed for step : ${testcase.stepid}`,
             args: {},
             globs: {
                 "dataforvalidation": { type: 'json', value: JSON.stringify(testcase.expected), desc: '' },
                 "datatoinject": { type: 'json', value: JSON.stringify(testcase.injected), desc: '' },
             },
-            steps: Testbed.steps(stepid, testcase.params),
-            pipes: Testbed.pipes(stepid)
+            steps: Testbed.steps(testcase.stepid, testcase.params),
+            pipes: Testbed.pipes(testcase.stepid)
         })
+    }
+    static async run(tests: Testcase[]) {
+        for (let i = 0; i < tests.length; i++) {
+            try {
+                const test = new Testbed(tests[i])
+                await test.run()
+                console.log(`SUCCESS: test ${tests[i].title}`);
+            } catch (e) {
+                console.error(`FAILURE: test ${tests[i].title} due to: ${ e.message }`);
+            }
+        }
     }
 }
 
 export {
-    Declaration, Flowchart, Batch, Testbed, Step, ParamsMap, SOP, EOP
+    Declaration, Flowchart, Testcase, Batch, Testbed, Step, ParamsMap, SOP, EOP
 };

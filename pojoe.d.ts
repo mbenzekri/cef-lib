@@ -81,6 +81,7 @@ declare type TestData = {
     [key: string]: any[];
 };
 declare type Testcase = {
+    stepid: string;
     title: string;
     params: ParamsMap;
     injected: TestData;
@@ -248,6 +249,7 @@ declare abstract class Step {
 declare class Testbed extends Batch {
     static pipes(stepid: string): PipeObj[];
     static steps(stepid: string, params: ParamsMap): StepObj[];
-    constructor(stepid: string, testcase: Testcase);
+    constructor(testcase: Testcase);
+    static run(tests: Testcase[]): Promise<void>;
 }
-export { Declaration, Flowchart, Batch, Testbed, Step, ParamsMap, SOP, EOP };
+export { Declaration, Flowchart, Testcase, Batch, Testbed, Step, ParamsMap, SOP, EOP };

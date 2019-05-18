@@ -1,5 +1,5 @@
-import { Declaration, Flowchart, Batch, Testbed, Step, ParamsMap, SOP, EOP } from './pojoe';
+import { Declaration, Flowchart, Testcase, Batch, Testbed, Step, ParamsMap, SOP, EOP } from './pojoe';
 import './PojoProducer';
 import './PojoFilter';
 import './PojoLogger';
-export { Declaration, Flowchart, Batch, Testbed, Step, ParamsMap, SOP, EOP };
+export { Declaration, Flowchart, Testcase, Batch, Testbed, Step, ParamsMap, SOP, EOP };

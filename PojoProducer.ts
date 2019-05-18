@@ -14,7 +14,7 @@ const declaration: pe.Declaration = {
         'pojo': {
             title: 'the pojo literal',
             type: 'json',
-            default: 'json',
+            default: '${JSON.stringify(params.pojo)}',
         },
     }
 }
@@ -25,7 +25,7 @@ export default class PojoProducer extends pe.Step {
         super(declaration, params)
     }
     async doit() {
-        this.output("pojo", this.params.json)
+        this.output("pojo", this.params.pojo)
     }
 }
 

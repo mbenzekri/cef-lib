@@ -23,7 +23,7 @@ const declaration = {
         'pojo': {
             title: 'the pojo literal',
             type: 'json',
-            default: 'json',
+            default: '${JSON.stringify(params.pojo)}',
         },
     }
 };
@@ -33,7 +33,7 @@ class PojoProducer extends pe.Step {
     }
     doit() {
         return __awaiter(this, void 0, void 0, function* () {
-            this.output("pojo", this.params.json);
+            this.output("pojo", this.params.pojo);
         });
     }
 }
