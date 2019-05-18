@@ -1,7 +1,7 @@
 {
-  "name": "pes-lib",
+  "name": "pojoe",
   "version": "1.0.0",
-  "description": "the Pojo Engine Factory (shorter Pojoe) main library for developping pluggable Pojoe steps ",
+  "description": "the Pojoe (Pojo Engine) main library for developping pluggable Pojoe steps ",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
