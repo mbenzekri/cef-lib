@@ -1,13 +1,6 @@
 import { Testbed, Testcase } from './index'
 
-let test: Testbed;
-/**
- * test output a pojo with PojoProducer
- */
-type Testlist = Testcase[]
-
-
-const tests: Testlist = [
+const tests: Testcase[] = [
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
         title: 'PojoProcucer',
