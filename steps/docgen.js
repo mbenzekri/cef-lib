@@ -76,10 +76,10 @@ steplist.forEach(name => {
     const decl = decls[name];
     const ids = decl.gitid.split(/\//);
     const classname = ids[3];
-    fs.appendFileSync(readme, `<detail>\n`);
-    fs.appendFileSync(readme, `<summary>\n`);
+    fs.appendFileSync(readme, `\n<detail>\n`);
+    fs.appendFileSync(readme, `\n<summary>\n`);
     fs.appendFileSync(readme, `${name} : ${decl.title}\n`);
-    fs.appendFileSync(readme, `</summary>\n`);
+    fs.appendFileSync(readme, `\n</summary>\n`);
     //fs.appendFileSync(readme,`>- [${name}](#${(classname +' ' + decl.title).toLowerCase().replace(/ +/g,'-')}) : ${decl.title}\n`)
     if (name) {
         const decl = decls[name];
@@ -138,7 +138,7 @@ steplist.forEach(name => {
         });
         fs.appendFileSync(readme, `\n---\n\n`);
     }
-    fs.appendFileSync(readme, `</detail>\n`);
+    fs.appendFileSync(readme, `\n</detail>\n`);
 });
 fs.appendFileSync(readme, `---\n`);
 process.exit(0);

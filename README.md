@@ -12,9 +12,10 @@
 
 <summary>
 PojoProducer : output a pojo
-</summary>
 
+</summary>
 # PojoProducer output a pojo
+>
 
 ## goal
 
@@ -32,10 +33,14 @@ PojoProducer : output a pojo
 
 ---
 
+
 </detail>
+
 <detail>
+
 <summary>
 PojoFilter : filter pojos
+
 </summary>
 # PojoFilter filter pojos
 >
@@ -58,10 +63,14 @@ PojoFilter : filter pojos
 
 ---
 
+
 </detail>
+
 <detail>
+
 <summary>
 PojoLogger : Logs pojos
+
 </summary>
 # PojoLogger Logs pojos
 >
@@ -81,6 +90,7 @@ PojoLogger : Logs pojos
 
 
 ---
+
 
 </detail>
 ---
