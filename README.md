@@ -7,9 +7,9 @@
 >`npm install mbenzekri/pojoe`
 
 # included steps 
-
-<detail>
-<summary>PojoProducer : output a pojo</summary>
+>- [PojoProducer](#pojoproducer-output-a-pojo) : output a pojo
+>- [PojoFilter](#pojofilter-filter-pojos) : filter pojos
+>- [PojoLogger](#pojologger-logs-pojos) : Logs pojos
 # PojoProducer output a pojo
 >
 
@@ -29,11 +29,6 @@
 
 ---
 
-
-</detail>
-
-<detail>
-<summary>PojoFilter : filter pojos</summary>
 # PojoFilter filter pojos
 >
 
@@ -55,11 +50,6 @@
 
 ---
 
-
-</detail>
-
-<detail>
-<summary>PojoLogger : Logs pojos</summary>
 # PojoLogger Logs pojos
 >
 
@@ -79,6 +69,4 @@
 
 ---
 
-
-</detail>
 ---
