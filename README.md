@@ -9,11 +9,7 @@
 # included steps 
 
 <detail>
-
-<summary>
-PojoProducer : output a pojo
-
-</summary>
+<summary>PojoProducer : output a pojo</summary>
 # PojoProducer output a pojo
 >
 
@@ -37,11 +33,7 @@ PojoProducer : output a pojo
 </detail>
 
 <detail>
-
-<summary>
-PojoFilter : filter pojos
-
-</summary>
+<summary>PojoFilter : filter pojos</summary>
 # PojoFilter filter pojos
 >
 
@@ -67,11 +59,7 @@ PojoFilter : filter pojos
 </detail>
 
 <detail>
-
-<summary>
-PojoLogger : Logs pojos
-
-</summary>
+<summary>PojoLogger : Logs pojos</summary>
 # PojoLogger Logs pojos
 >
 
