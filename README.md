@@ -11,7 +11,6 @@
 <summary>
 PojoProducer : output a pojo
 </summary>
->- [PojoProducer](#pojoproducer-output-a-pojo) : output a pojo
 # PojoProducer output a pojo
 >
 
@@ -31,12 +30,11 @@ PojoProducer : output a pojo
 
 ---
 
-<\detail>
+</detail>
 <detail>
 <summary>
 PojoFilter : filter pojos
 </summary>
->- [PojoFilter](#pojofilter-filter-pojos) : filter pojos
 # PojoFilter filter pojos
 >
 
@@ -58,12 +56,11 @@ PojoFilter : filter pojos
 
 ---
 
-<\detail>
+</detail>
 <detail>
 <summary>
 PojoLogger : Logs pojos
 </summary>
->- [PojoLogger](#pojologger-logs-pojos) : Logs pojos
 # PojoLogger Logs pojos
 >
 
@@ -83,5 +80,5 @@ PojoLogger : Logs pojos
 
 ---
 
-<\detail>
+</detail>
 ---
