@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = require("fs");
 const _1 = require(".");
+process.env.NODE_PATH = `${process.cwd()}/steps`;
+require("module").Module._initPaths();
 const readme = 'README.md';
 const decls = {};
 let pkg;
@@ -42,7 +44,7 @@ if (!pkg.repository || !pkg.repository || pkg.repository.type !== 'git' || !pkg.
 const steplist = pkg.config.steps;
 steplist.forEach(name => {
     const account = pkg.repository.url.replace(/^.*github.com\//, '').replace(/\/.*$/, '');
-    const pathmod = `${process.cwd()}/steps/${name}`;
+    const pathmod = `${name}`;
     try {
         let module = require(pathmod);
         let gitid = `${account}/${pkg.name}/steps/${name}`;

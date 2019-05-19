@@ -1,5 +1,7 @@
 import * as fs from  'fs'
 import {Declaration, Step} from  '.'
+process.env.NODE_PATH = `${process.cwd()}/steps`;
+require("module").Module._initPaths();
 
 const readme = 'README.md' 
 const decls : {[key:string]: Declaration } = {}
@@ -43,9 +45,9 @@ if (!pkg.repository || !pkg.repository || pkg.repository.type !== 'git'  || !pkg
 const steplist: string[] = pkg.config.steps
 steplist.forEach(name => {
     const account = pkg.repository.url.replace(/^.*github.com\//,'').replace(/\/.*$/,'')
-    const pathmod = `${process.cwd()}/steps/${name}`
+    const pathmod = `${name}`
     try {
-        let module = require(pathmod)
+        let module = require(pathmod);
         let gitid = `${account}/${pkg.name}/steps/${name}`
         module = Step.getstep(gitid);
         if (!module) {
