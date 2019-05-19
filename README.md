@@ -1,17 +1,87 @@
+
 # pojoe
-    this is the Pojo Engine (shorter Pojoe) main library providing file system steps for file/directory operations
-    
-# install: 
-    npm install mbenzekri/pojoe
+>this is the main Pojoe (formerly Pojo Engine) library use it to develop pluggable Pojoe steps, 
+ this librarary provides some simple but useful steps (see below)
+# install
+
+>`npm install mbenzekri/pojoe`
+
+# included steps 
+<detail>
+<summary>
+PojoProducer : output a pojo
+</summary>
+>- [PojoProducer](#pojoproducer-output-a-pojo) : output a pojo
+# PojoProducer output a pojo
+>
 
 ## goal
 
-     Use this module to develop step to intégrate in Pojoe (Pojo Engine)
+>this step emit one pojo provided in a parameter object literal expression
 
-<details>
+---
+## parameters
+> **pojo** *{json}* -- the pojo literal  -- default = `${JSON.stringify(params.pojo)}`
+> 
+
+
+## outputs
+>- **pojo** -- the pojo 
+
+
+---
+
+<\detail>
+<detail>
 <summary>
-TO BE CONTINUED ...
+PojoFilter : filter pojos
 </summary>
+>- [PojoFilter](#pojofilter-filter-pojos) : filter pojos
+# PojoFilter filter pojos
+>
 
-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
-</details>
+## goal
+
+> filter each inputed pojo with boolean expression
+
+---
+## parameters
+> **test** *{boolean}* -- filter expression  -- default = `true`
+> 
+
+## inputs
+>- **pojos** -- pojo to filter 
+
+## outputs
+>- **filtered** -- filtered pojos 
+
+
+---
+
+<\detail>
+<detail>
+<summary>
+PojoLogger : Logs pojos
+</summary>
+>- [PojoLogger](#pojologger-logs-pojos) : Logs pojos
+# PojoLogger Logs pojos
+>
+
+## goal
+
+> logs each inputed pojo through console
+
+---
+## parameters
+> **expression** *{string}* -- expression to log  -- default = `${JSON.stringify(pojo)}`
+> 
+
+## inputs
+>- **pojos** -- pojo to log 
+
+
+
+---
+
+<\detail>
+---

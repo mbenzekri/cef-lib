@@ -1,5 +1,12 @@
 declare const SOP = "SOF";
 declare const EOP = "EOF";
+/**
+ *  on memory step registry (Step Map)
+ */
+declare type StepModule = {
+    declaration: Declaration;
+    create: (params: ParamsMap) => Step;
+};
 declare type Declaration = {
     gitid: string;
     title: string;
@@ -105,6 +112,7 @@ declare class Batch {
     readonly globs: any;
     readonly args: any;
     toString(): string;
+    error(message: string): void;
     private initargs;
     private initglobs;
     /**
@@ -172,6 +180,7 @@ declare class InputPort extends Port {
  */
 declare abstract class Step {
     static Register(declaration: Declaration, create: (p: ParamsMap) => Step): void;
+    static getstep(stepid: string): StepModule;
     readonly id: any;
     readonly decl: Declaration;
     private _inports;

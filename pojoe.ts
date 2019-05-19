@@ -12,7 +12,7 @@ const EOP = 'EOF';  // End Of Pojos
  *  on memory step registry (Step Map)
  */
 type StepModule = { declaration: Declaration, create: (params: ParamsMap) => Step; }
-const DECLARATIONS: { [key: string]: StepModule } = {}
+const REGISTRY: { [key: string]: StepModule } = {}
 
 type Declaration = {
     gitid: string;
@@ -160,6 +160,7 @@ class Batch {
     get globs() { return this._globs }
     get args() { return this._args }
     toString() { return `[${this._flowchart.id}/${this._flowchart.title}]`; }
+    error(message: string) { error(this, message) }
 
     private initargs() {
         const argv: any = {};
@@ -187,7 +188,7 @@ class Batch {
                     const type = this._flowchart.args[name].type
                     if (name in this._flowchart.args) {
                         this._args[name] = argfunc(type, value);
-                    }    
+                    }
                 }
             }
         })
@@ -231,7 +232,7 @@ class Batch {
         // construct all steps 
         this._flowchart.steps.forEach(stepobj => {
             let module: StepModule;
-            module = DECLARATIONS[stepobj.gitid]
+            module = REGISTRY[stepobj.gitid]
             if (!module) {
                 // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
                 const items = stepobj.gitid.split('/')
@@ -244,7 +245,7 @@ class Batch {
                     error(this, `unable to locate step "${stepobj.gitid}"  module searched with ${globpath}`)
                 }
             }
-            module = DECLARATIONS[stepobj.gitid]
+            module = REGISTRY[stepobj.gitid]
             const step: Step = module.create(stepobj.params)
             step.initparams(this.args, this.globs)
             this._steps.set(stepobj.id, step)
@@ -266,20 +267,20 @@ class Batch {
 
     async run() {
         // start nodes without predecessor
-            debug(this, `initialising arguments`)
-            this.initargs()
-            debug(this, `initialising globals `)
-            this.initglobs()
-            debug(this, `initialising steps parameters`)
-            this.initsteps()
-            Object.freeze(this)
-            // collect initial steps an
-            debug(this, `executing all the batch's steps `)
-            let promises: Promise<any>[] = []
-            this._steps.forEach(step => {
-                promises.push(step.exec())
-            })
-            await Promise.all(promises)
+        debug(this, `initialising arguments`)
+        this.initargs()
+        debug(this, `initialising globals `)
+        this.initglobs()
+        debug(this, `initialising steps parameters`)
+        this.initsteps()
+        Object.freeze(this)
+        // collect initial steps an
+        debug(this, `executing all the batch's steps `)
+        let promises: Promise<any>[] = []
+        this._steps.forEach(step => {
+            promises.push(step.exec())
+        })
+        await Promise.all(promises)
     }
 }
 
@@ -458,7 +459,10 @@ class InputPort extends Port {
 abstract class Step {
 
     static Register(declaration: Declaration, create: (p: ParamsMap) => Step) {
-        DECLARATIONS[declaration.gitid] = { declaration, create }
+        REGISTRY[declaration.gitid] = { declaration, create }
+    }
+    static getstep(stepid: string) {
+        return REGISTRY[stepid] 
     }
     readonly id = uuid()
     readonly decl: Declaration
@@ -618,8 +622,9 @@ abstract class Step {
 
 
 class TestbedOutput extends Step {
+    static readonly gitid = 'mbenzekri/pojoe/steps/TestbedOutput'
     static readonly decl: Declaration = {
-        gitid: 'mbenzekri/pojoe/steps/TestbedOutput',
+        gitid: TestbedOutput.gitid,
         title: 'output a pojos to the tested step',
         desc: 'this step inject all the test pojos into the tested step',
         inputs: {},
@@ -648,8 +653,9 @@ class TestbedOutput extends Step {
 
 
 class TestbedInput extends Step {
+    static readonly gitid: 'mbenzekri/pojoe/steps/TestbedInput'
     static readonly decl: Declaration = {
-        gitid: 'mbenzekri/pojoe/steps/TestbedInput',
+        gitid: TestbedInput.gitid,
         title: 'get pojos from the tested step and validate',
         desc: 'this step receives all the pojos of the tested step and validate them among the expected data',
         inputs: {/* to be dynamicaly created at test initialisation */ },
@@ -696,26 +702,31 @@ Step.Register(TestbedInput.decl, (params: ParamsMap): Step => new TestbedInput()
 
 class Testbed extends Batch {
     static pipes(stepid: string): PipeObj[] {
-        const outpipes = Object.keys(DECLARATIONS[stepid].declaration.inputs).map(inport => <PipeObj>{ from: 'testbedoutput', outport: inport, to: 'testtostep', inport: inport })
-        const inpipes = Object.keys(DECLARATIONS[stepid].declaration.outputs).map(outport => <PipeObj>{ from: 'testtostep', outport: outport, to: 'testbedinput', inport: outport })
-
-        const TestbedOutputdecl = DECLARATIONS['mbenzekri/pojoe/steps/TestbedOutput'].declaration
-        const TestbedInputdecl = DECLARATIONS['mbenzekri/pojoe/steps/TestbedInput'].declaration
-        TestbedOutputdecl.outputs = Object.keys(DECLARATIONS[stepid].declaration.inputs).reduce((prev: OutPortsMap, port: string) => {
-            prev[port] = { title: 'dynamic ouput test port' }
-            return prev
-        }, {})
-        TestbedInputdecl.inputs = Object.keys(DECLARATIONS[stepid].declaration.outputs).reduce((prev: InPortsMap, port: string) => {
+        const stepmod = REGISTRY[stepid]
+        stepmod || error('Testbed', `${stepid} not registered`);
+        const outpipes = Object.keys(stepmod.declaration.inputs).map(
+            inport => <PipeObj>{ from: 'testbedoutput', outport: inport, to: 'testtostep', inport: inport }
+        )
+        const inpipes = Object.keys(stepmod.declaration.outputs).map(
+            outport => <PipeObj>{ from: 'testtostep', outport: outport, to: 'testbedinput', inport: outport }
+        )
+        const outdecl = REGISTRY[TestbedOutput.gitid].declaration
+        const indecl = REGISTRY[TestbedInput.gitid].declaration
+        outdecl.outputs = Object.keys(stepmod.declaration.inputs).reduce((prev, port) => {
+                prev[port] = { title: 'dynamic ouput test port' }
+                return prev
+        }, <OutPortsMap>{})
+        indecl.inputs = Object.keys(stepmod.declaration.outputs).reduce((prev,port) => {
             prev[port] = { title: 'dynamic input test port' }
             return prev
-        }, {})
+        }, <InPortsMap>{})
         return outpipes.concat(inpipes)
     }
     static steps(stepid: string, params: ParamsMap): StepObj[] {
         return [
-            { id: 'testbedoutput', gitid: 'mbenzekri/pojoe/steps/TestbedOutput', params: {} },
+            { id: 'testbedoutput', gitid: TestbedOutput.gitid, params: {} },
             { id: 'testtostep', gitid: stepid, params: params },
-            { id: 'testbedinput', gitid: 'mbenzekri/pojoe/steps/TestbedInput', params: {} },
+            { id: 'testbedinput', gitid: TestbedInput.gitid, params: {} },
         ]
     }
     constructor(testcase: Testcase) {
@@ -739,7 +750,7 @@ class Testbed extends Batch {
                 await test.run()
                 console.log(`SUCCESS: test ${tests[i].title}`);
             } catch (e) {
-                console.error(`FAILURE: test ${tests[i].title} due to: ${ e.message }`);
+                console.error(`FAILURE: test ${tests[i].title} due to: ${e.message}`);
             }
         }
     }

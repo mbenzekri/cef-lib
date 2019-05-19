@@ -1,14 +1,17 @@
 {
     "name": "pojoe",
     "version": "1.0.0",
-    "description": "the Pojoe (Pojo Engine) main library for developping pluggable Pojoe steps ",
+    "description": "this is the main Pojoe (formerly Pojo Engine) library use it to develop pluggable Pojoe steps, \n this librarary provides some simple but useful steps (see below)",
     "main": "node ./test.js",
+    "config" :{
+        "steps" : ["PojoProducer",  "PojoFilter", "PojoLogger" ]
+    },
     "scripts": {
-        "prebuild": "echo no prebuild.",
         "build": "tsc",
         "pretest": "tsc",
-        "test": "node ./test.js",
-        "doc": "echo dont_do_doc_run_command_it_will_crush_the_current_readme"
+        "test": "node ./steps/test.js",
+        "predoc": "tsc",
+        "doc": "node ./steps/docgen.js"
     },
     "repository": {
         "type": "git",

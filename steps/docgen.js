@@ -1,12 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = require("fs");
+const _1 = require(".");
 const readme = 'README.md';
-const steps = process.argv;
 const decls = {};
-steps.shift();
-steps.shift();
-let pkg, pathmod;
+let pkg;
 try {
     pkg = JSON.parse(fs.readFileSync('./package.json', { encoding: 'utf8' }));
 }
@@ -14,19 +12,54 @@ catch (e) {
     console.error(`unable to read package.json in directory ${process.cwd()} `);
     process.exit(1);
 }
-steps.forEach(name => {
+if (!pkg.config || !pkg.config.steps || !Array.isArray(pkg.config.steps)) {
+    console.error("unable to find steps list in package.json \n");
+    console.log(`
+    please configure your step list in package.json like:
+    {
+        ...
+        "config" :{
+            "steps" : [ "StepClass1", "StepClass2", "StepClass3" ]
+        },
+        ...
+    }\n`);
+    process.exit(1);
+}
+if (!pkg.repository || !pkg.repository || pkg.repository.type !== 'git' || !pkg.repository.url) {
+    console.error("unable to find correct repository configuration in package.json \n");
+    console.log(`
+    please configure your repository in package.json like:
+    {
+        ...
+        "repository": {
+            "type": "git",
+            "url": "git+https://github.com/mbenzekri/pojoe.git"
+        },
+            ...
+    }\n`);
+    process.exit(1);
+}
+const steplist = pkg.config.steps;
+steplist.forEach(name => {
+    const account = pkg.repository.url.replace(/^.*github.com\//, '').replace(/\/.*$/, '');
+    const pathmod = `${process.cwd()}/steps/${name}`;
     try {
-        pathmod = `${process.cwd()}/steps/${name}`;
-        const module = require(pathmod);
+        let module = require(pathmod);
+        let gitid = `${account}/${pkg.name}/steps/${name}`;
+        module = _1.Step.getstep(gitid);
+        if (!module) {
+            console.error(`unable to get module ${gitid} from registry `);
+            process.exit(1);
+        }
         decls[name] = module.declaration;
     }
     catch (e) {
-        console.error(`unable to require module ${pathmod} `);
+        console.error(`unable to require module ${pathmod} due to ${e.message} `);
         process.exit(2);
     }
 });
 let repository;
-steps.forEach(name => {
+steplist.forEach(name => {
     const decl = decls[name];
     const ids = decl.gitid.split(/\//);
     repository = `${ids[0]}/${ids[1]}`;
@@ -39,7 +72,7 @@ fs.appendFileSync(readme, `>${pkg.description}\n`);
 fs.appendFileSync(readme, `# install\n\n`);
 fs.appendFileSync(readme, `>\`npm install ${repository}\`\n\n`);
 fs.appendFileSync(readme, `# included steps \n`);
-steps.forEach(name => {
+steplist.forEach(name => {
     const decl = decls[name];
     const ids = decl.gitid.split(/\//);
     const classname = ids[3];
@@ -105,7 +138,8 @@ steps.forEach(name => {
         });
         fs.appendFileSync(readme, `\n---\n\n`);
     }
-    fs.appendFileSync(readme, `<\etail>\n`);
+    fs.appendFileSync(readme, `<\\detail>\n`);
 });
 fs.appendFileSync(readme, `---\n`);
+process.exit(0);
 //# sourceMappingURL=docgen.js.map
