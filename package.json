@@ -8,7 +8,7 @@
     },
     "scripts": {
         "build": "tsc",
-        "pretest": "tsc",
+        "pretest": "npm run doc",
         "test": "node ./steps/test.js",
         "predoc": "tsc",
         "doc": "node ./steps/docgen.js"
