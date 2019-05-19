@@ -7,12 +7,14 @@
 >`npm install mbenzekri/pojoe`
 
 # included steps 
+
 <detail>
+
 <summary>
 PojoProducer : output a pojo
 </summary>
+
 # PojoProducer output a pojo
->
 
 ## goal
 
