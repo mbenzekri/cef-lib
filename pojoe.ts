@@ -68,7 +68,9 @@ type Testcase = {
     title: string;
     params: ParamsMap;
     injected: TestData;
-    expected: TestData
+    expected: TestData;
+    onstart?: (teststep: Step) => void
+    onend?: (teststep: Step) => void
 }
 
 
@@ -91,6 +93,13 @@ function debug(obj: any, message: string): boolean {
     return true
 }
 
+function quote(str:string) {
+    let quoted = str.replace(/\\{2}/g,'²')
+    quoted = quoted.replace(/\\{1}([^fnrt"])/g,'\\\\$1')
+    quoted = quoted.replace(/²/g,'\\\\') 
+    return quoted
+} 
+
 function bodyfunc(type: string, strvalue: string): string {
     const cleanstr = strvalue.replace(/\`/, '\\`')
     let body = `return \`${cleanstr}\``;
@@ -111,30 +120,42 @@ function bodyfunc(type: string, strvalue: string): string {
             break;
         case 'date[]': body = `return (\`${cleanstr}\`).split(/,/).map(v => new Date(v))`;
             break;
-        case 'json': body = `return JSON.parse(\`${cleanstr}\`)`;
+        case 'json': body = ` 
+            const expanded = String.raw\`${cleanstr}\`;
+            let quoted = expanded
+            //let quoted = quote(expanded)
+            let parsed = {}
+            try {
+                parsed=JSON.parse(quoted)
+            } catch(e) { 
+                throw(new Error('JSON parsing fails for parameter value '+ quoted)) 
+            }
+            return parsed
+            `;
             break;
-        case 'json[]': body = `const arr=JSON.parse(\`${cleanstr}\`); return Array.isArray(arr) ? arr : [arr] `;
+        case 'json[]': body = `const arr=JSON.parse(\`${cleanstr}\`.replace(/\\{1}[^fnrt"]/,'\\\\')); return Array.isArray(arr) ? arr : [arr] `;
             break;
         case 'regexp': body = `return new RegExp(\`${cleanstr}\`)`;
             break;
-        case 'string': body = `return \`${cleanstr}\``;
+        case 'string': body = `return (String.raw\`${cleanstr}\`)`;
             break;
-        case 'string[]': body = `return (\`${cleanstr}\`).split(/,/)`;
+        case 'string[]': body = `return (String.raw\`${cleanstr}\`).split(/,/)`;
             break;
     }
     return body;
 }
 
 function argfunc(type: string, strvalue: string): Function {
-    return new Function(bodyfunc(type, strvalue));
+    return new Function('quote', bodyfunc(type, strvalue));
 }
 
 function globfunc(type: string, strvalue: string): Function {
-    return new Function('args', 'globs', bodyfunc(type, strvalue));
+    const body = bodyfunc(type, strvalue)
+    return new Function('args', 'globs', 'quote', body);
 }
 
 function paramfunc(type: string, strvalue: string): Function {
-    return new Function('args', 'globs', 'params', 'pojo', bodyfunc(type, strvalue));
+    return new Function('args', 'globs', 'params', 'pojo', 'quote', bodyfunc(type, strvalue));
 }
 
 /**
@@ -153,13 +174,14 @@ class Batch {
 
     constructor(flowchart: Flowchart) {
         this._flowchart = flowchart
+        DEBUG = process.argv.some((arg) => /^--DEBUG$/i.test(arg))
         // !!! eviter de faire des action supplementaire ici sinon valider avec Testbed 
     }
     get flowchart() { return this._flowchart }
     get steps() { return this._steps }
     get globs() { return this._globs }
     get args() { return this._args }
-    toString() { return `[${this._flowchart.id}/${this._flowchart.title}]`; }
+    toString() { return `${this._flowchart.id}[Batch: ${this._flowchart.title}]`; }
     error(message: string) { error(this, message) }
 
     private initargs() {
@@ -181,7 +203,6 @@ class Batch {
         // then process parameters
         process.argv.forEach((arg, i) => {
             if (i < 2) return; // skip 'node.exe' and 'script.js'
-            if (arg == '--DEBUG') return DEBUG = true
             if (/^--.*==.*$/.test(arg)) {
                 const [name, value] = arg.replace(/^--?/, '').split(/=/)
                 if (this._flowchart.args[name]) {
@@ -195,7 +216,7 @@ class Batch {
         this._args = new Proxy(argv, {
             get: (target, property) => {
                 try {
-                    return target[property]();
+                    return target[property](quote);
                 } catch (e) {
                     error(this, `error "${e.message}" when evaluating arg parameter "${String(property)}"`);
                 }
@@ -216,7 +237,7 @@ class Batch {
         this._globs = new Proxy(globs, {
             get: (target, property) => {
                 try {
-                    return target[property](this._args, this.globs);
+                    return target[property](this._args, this.globs,quote);
                 } catch (e) {
                     error(this, `error "${e.message}" when evaluating global parameter "${String(property)}"`);
                 }
@@ -265,21 +286,27 @@ class Batch {
         })
     }
 
-    async run() {
-        // start nodes without predecessor
+    async run(stepscb : (steps: Step[]) => void) {
+        debug(this, `Starting batch (pid: ${process.pid})`)
         debug(this, `initialising arguments`)
         this.initargs()
         debug(this, `initialising globals `)
         this.initglobs()
-        debug(this, `initialising steps parameters`)
+        debug(this, `initialising steps`)
         this.initsteps()
         Object.freeze(this)
-        // collect initial steps an
+
+        const steps = Array.from(this._steps.values()) 
+        try {
+            stepscb && stepscb(steps)
+        } catch(e) {
+            this.error(`onstart callback error due to due to ${e.message}`)
+        }
         debug(this, `executing all the batch's steps `)
         let promises: Promise<any>[] = []
-        this._steps.forEach(step => {
+        for (let step of steps) {
             promises.push(step.exec())
-        })
+        }
         await Promise.all(promises)
     }
 }
@@ -511,12 +538,13 @@ abstract class Step {
     get isfinal() { return this.outports.length === 0 }
     outport(name: string): OutputPort { return this._outports[name] }
     inport(name: string): InputPort { return this._inports[name] }
-    toString() { return `[${this.decl.gitid} / ${this.id}]`; }
+    toString() { return `${this.id}[Step: ${this.decl.gitid}]`; }
     isinport(portname: string) { return this._inports[portname] ? true : false }
     isoutport(portname: string) { return this._outports[portname] ? true : false }
     port(name: string): Port { return this._inports[name] || this._outports[name] }
     log(message: string) { console.log(message) }
     error(message: string) { error(this, message) }
+    debug(message: string) { debug(this, message) }
 
     /**
      * initialize dynamic step parameter access
@@ -533,7 +561,7 @@ abstract class Step {
         this._params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
-                    return target[property](args, globs, this._params, this.pojo);
+                    return target[property](args, globs, this._params, this.pojo,quote);
                 } catch (e) {
                     error(this, `error when evaluating step parameter "${String(property)}" due to "${e.message}" `);
                 }
@@ -555,29 +583,15 @@ abstract class Step {
     private async init() {
         for (let i = 0; i < this.outports.length; i++) {
             const outport = this.outports[i]
-            await this.open(outport.name)
+            await outport.put(SOP)
+
         }
     }
     private async terminate() {
-        this.outports.forEach(outport => this.close(outport.name))
-    }
-    /**
-     * method to declare output termination throw the corresponding port
-     * @param name: a port name
-     */
-    private async close(outport: string) {
-        const port = this._outports[outport]
-        !port && error(this, `unknown output port  "${outport}".`);
-        return port.put(EOP)
-    }
-    /**
-     * method to declare output starting throw the corresponding port
-     * @param name: a port name
-     */
-    private async open(outport: string) {
-        const port = this._outports[outport]
-        !port && error(this, `unknown output port  "${outport}".`);
-        return await port.put(SOP)
+        for (let i = 0; i < this.outports.length; i++) {
+            const outport = this.outports[i]
+            await outport.put(EOP)
+        }
     }
 
     /**
@@ -600,7 +614,7 @@ abstract class Step {
     async input(inport: string) {
         const port = this._inports[inport]
         !port && error(this, `unknown input port  "${inport}".`);
-        debug(this, `awaiting for input into port "${port.name} " `)
+        debug(this, `awaiting for input into port "${port.name}" `)
         this.pojo = await port.get()
         debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0, 100)}" `)
         return this.pojo
@@ -625,12 +639,12 @@ class TestbedOutput extends Step {
     static readonly gitid = 'mbenzekri/pojoe/steps/TestbedOutput'
     static readonly decl: Declaration = {
         gitid: TestbedOutput.gitid,
-        title: 'output a pojos to the tested step',
-        desc: 'this step inject all the test pojos into the tested step',
+        title: 'output test pojos to the tested step',
+        desc: 'this step inject all the provided test pojos into the tested step',
         inputs: {},
         outputs: { /* to be dynamicaly created at test initialisation */ },
         parameters: {
-            'datatoinject': { default: '${ JSON.stringify(globs.datatoinject)}', type: 'json', title: 'data to inject into the step' }
+            'dataforinjection': { default: '${ JSON.stringify(globs.dataforinjection)}', type: 'json', title: 'data to inject into the step' }
         },
     };
     constructor() {
@@ -639,7 +653,7 @@ class TestbedOutput extends Step {
 
     async doit() {
         // output all the provided pojos for the test
-        const data = this.params.datatoinject
+        const data = this.params.dataforinjection
         for (let outport in this.decl.outputs) {
             if (data[outport]) {
                 for (let i = 0; i < data[outport].length; i++) {
@@ -682,13 +696,14 @@ class TestbedInput extends Step {
         // checks equality with expected pojos 
         const dataval = this.params.dataforvalidation
         for (let input in dataval) {
-            const resdata = result[input] || []
+            const ouputed = result[input] || []
             const expected = dataval[input] || []
             // test if resdata in expected (same order)
-            const equals1 = resdata.every((pojo, i) => JSON.stringify(pojo) === JSON.stringify(expected[i]))
-            // test if resdata in expected
-            const equals2 = resdata.every((pojo, i) => JSON.stringify(pojo) === JSON.stringify(expected[i]))
-            if (!equals1 || !equals2) this.error(`test failed due to outputed data !== expected data on port "${input}"`)
+            const equals1 = ouputed.every((pojo, i) => JSON.stringify(pojo) === JSON.stringify(expected[i]))
+            // test if expected in resdata (same order)
+            const equals2 = expected.every((pojo, i) => JSON.stringify(pojo) === JSON.stringify(ouputed[i]))
+            if (!equals1 || !equals2) this.error(`test failed due to outputed data !== expected data on port "${input}"` +
+                `\n --- EXPECTED: \n${JSON.stringify(expected,undefined, 4)} \n --- OUTPUTED: \n${JSON.stringify(ouputed,undefined, 4)} \n`)
         }
     }
 }
@@ -737,7 +752,7 @@ class Testbed extends Batch {
             args: {},
             globs: {
                 "dataforvalidation": { type: 'json', value: JSON.stringify(testcase.expected), desc: '' },
-                "datatoinject": { type: 'json', value: JSON.stringify(testcase.injected), desc: '' },
+                "dataforinjection": { type: 'json', value: JSON.stringify(testcase.injected), desc: '' },
             },
             steps: Testbed.steps(testcase.stepid, testcase.params),
             pipes: Testbed.pipes(testcase.stepid)
@@ -746,8 +761,14 @@ class Testbed extends Batch {
     static async run(tests: Testcase[]) {
         for (let i = 0; i < tests.length; i++) {
             try {
-                const test = new Testbed(tests[i])
-                await test.run()
+                const testcase = tests[i]
+                const test = new Testbed(testcase)
+                let tested : Step
+                await test.run((steps:Step[]) =>{
+                    tested = steps.find(step => step.decl.gitid === testcase.stepid) 
+                    tested && testcase.onstart && testcase.onstart(tested)
+                })
+                tested && testcase.onend && testcase.onend(tested)
                 console.log(`SUCCESS: test ${tests[i].title}`);
             } catch (e) {
                 console.error(`FAILURE: test ${tests[i].title} due to: ${e.message}`);

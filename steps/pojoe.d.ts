@@ -93,6 +93,8 @@ declare type Testcase = {
     params: ParamsMap;
     injected: TestData;
     expected: TestData;
+    onstart?: (teststep: Step) => void;
+    onend?: (teststep: Step) => void;
 };
 /**
  * class defining a batch to run in cloud engine factory
@@ -120,7 +122,7 @@ declare class Batch {
      * @param {Step} step: a step to add to this batch
      */
     private initsteps;
-    run(): Promise<void>;
+    run(stepscb: (steps: Step[]) => void): Promise<void>;
 }
 declare class Pipe {
     readonly tmpfile: string;
@@ -216,6 +218,7 @@ declare abstract class Step {
     port(name: string): Port;
     log(message: string): void;
     error(message: string): void;
+    debug(message: string): void;
     /**
      * initialize dynamic step parameter access
      * @param args: arguments map provided by the batch
@@ -232,16 +235,6 @@ declare abstract class Step {
     connect(outport: OutputPort, inport: InputPort, filter?: (f: any) => boolean): void;
     private init;
     private terminate;
-    /**
-     * method to declare output termination throw the corresponding port
-     * @param name: a port name
-     */
-    private close;
-    /**
-     * method to declare output starting throw the corresponding port
-     * @param name: a port name
-     */
-    private open;
     /**
      * method to output a pojo throw the corresponding port
      * @param {string} outport: a port name
