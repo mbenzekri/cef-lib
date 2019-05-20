@@ -1,6 +1,6 @@
-import * as pe from './pojoe'
+import { Step, Declaration, ParamsMap, EOP } from './pojoe'
 
-const declaration: pe.Declaration = {
+const declaration: Declaration = {
     gitid: 'mbenzekri/pojoe/steps/PojoFilter',
     title: 'filter pojos',
     desc: ' filter each inputed pojo with boolean expression',
@@ -23,19 +23,20 @@ const declaration: pe.Declaration = {
     }
 }
 
-export default class PojoFilter extends pe.Step {
-    constructor (params: pe.ParamsMap) {
+export class PojoFilter extends Step {
+    static declaration: Declaration = declaration
+    constructor (params: ParamsMap) {
         super(declaration, params)
     }
 
     async doit() {
         let pojo = await this.input('pojos'); 
-        while (pojo !== pe.EOP) {
+        while (pojo !== EOP) {
             if (this.params.test) await this.output('filtered',pojo)
             pojo = await this.input('pojos');
         } 
     }
 }
 
-pe.Step.Register(declaration, (params: pe.ParamsMap) =>  new PojoFilter(params));
+Step.register(declaration, PojoFilter);
 

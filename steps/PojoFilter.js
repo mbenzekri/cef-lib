@@ -8,7 +8,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const pe = require("./pojoe");
+const pojoe_1 = require("./pojoe");
 const declaration = {
     gitid: 'mbenzekri/pojoe/steps/PojoFilter',
     title: 'filter pojos',
@@ -31,14 +31,14 @@ const declaration = {
         },
     }
 };
-class PojoFilter extends pe.Step {
+class PojoFilter extends pojoe_1.Step {
     constructor(params) {
         super(declaration, params);
     }
     doit() {
         return __awaiter(this, void 0, void 0, function* () {
             let pojo = yield this.input('pojos');
-            while (pojo !== pe.EOP) {
+            while (pojo !== pojoe_1.EOP) {
                 if (this.params.test)
                     yield this.output('filtered', pojo);
                 pojo = yield this.input('pojos');
@@ -46,6 +46,7 @@ class PojoFilter extends pe.Step {
         });
     }
 }
-exports.default = PojoFilter;
-pe.Step.Register(declaration, (params) => new PojoFilter(params));
+PojoFilter.declaration = declaration;
+exports.PojoFilter = PojoFilter;
+pojoe_1.Step.register(declaration, PojoFilter);
 //# sourceMappingURL=PojoFilter.js.map

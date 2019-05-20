@@ -8,7 +8,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const pe = require("./pojoe");
+const pojoe_1 = require("./pojoe");
 const declaration = {
     gitid: 'mbenzekri/pojoe/steps/PojoProducer',
     title: 'output a pojo',
@@ -27,7 +27,7 @@ const declaration = {
         },
     }
 };
-class PojoProducer extends pe.Step {
+class PojoProducer extends pojoe_1.Step {
     constructor(params) {
         super(declaration, params);
     }
@@ -38,6 +38,6 @@ class PojoProducer extends pe.Step {
     }
 }
 PojoProducer.declaration = declaration;
-exports.default = PojoProducer;
-pe.Step.Register(declaration, (params) => new PojoProducer(params));
+exports.PojoProducer = PojoProducer;
+pojoe_1.Step.register(declaration, PojoProducer);
 //# sourceMappingURL=PojoProducer.js.map

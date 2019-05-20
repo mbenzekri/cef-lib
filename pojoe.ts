@@ -11,8 +11,8 @@ const EOP = 'EOF';  // End Of Pojos
 /**
  *  on memory step registry (Step Map)
  */
-type StepModule = { declaration: Declaration, create: (params: ParamsMap) => Step; }
-const REGISTRY: { [key: string]: StepModule } = {}
+type TypeStep = { new(params: ParamsMap): Step; declaration: Declaration; }
+const REGISTRY: { [key: string]: TypeStep } = {}
 
 type Declaration = {
     gitid: string;
@@ -203,7 +203,7 @@ class Batch {
         // then process parameters
         process.argv.forEach((arg, i) => {
             if (i < 2) return; // skip 'node.exe' and 'script.js'
-            if (/^--.*==.*$/.test(arg)) {
+            if (/^--.*=.*$/.test(arg)) {
                 const [name, value] = arg.replace(/^--?/, '').split(/=/)
                 if (this._flowchart.args[name]) {
                     const type = this._flowchart.args[name].type
@@ -252,8 +252,7 @@ class Batch {
     private initsteps() {
         // construct all steps 
         this._flowchart.steps.forEach(stepobj => {
-            let module: StepModule;
-            module = REGISTRY[stepobj.gitid]
+            let aclass = REGISTRY[stepobj.gitid]
             if (!module) {
                 // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
                 const items = stepobj.gitid.split('/')
@@ -266,8 +265,8 @@ class Batch {
                     error(this, `unable to locate step "${stepobj.gitid}"  module searched with ${globpath}`)
                 }
             }
-            module = REGISTRY[stepobj.gitid]
-            const step: Step = module.create(stepobj.params)
+            aclass = REGISTRY[stepobj.gitid]
+            const step: Step = new aclass(stepobj.params)
             step.initparams(this.args, this.globs)
             this._steps.set(stepobj.id, step)
         })
@@ -484,9 +483,8 @@ class InputPort extends Port {
 
 
 abstract class Step {
-
-    static Register(declaration: Declaration, create: (p: ParamsMap) => Step) {
-        REGISTRY[declaration.gitid] = { declaration, create }
+    static register(declaration: Declaration, aclass: TypeStep) {
+        REGISTRY[declaration.gitid] = aclass
     }
     static getstep(stepid: string) {
         return REGISTRY[stepid] 
@@ -637,7 +635,7 @@ abstract class Step {
 
 class TestbedOutput extends Step {
     static readonly gitid = 'mbenzekri/pojoe/steps/TestbedOutput'
-    static readonly decl: Declaration = {
+    static readonly declaration: Declaration = {
         gitid: TestbedOutput.gitid,
         title: 'output test pojos to the tested step',
         desc: 'this step inject all the provided test pojos into the tested step',
@@ -648,7 +646,7 @@ class TestbedOutput extends Step {
         },
     };
     constructor() {
-        super(TestbedOutput.decl, {})
+        super(TestbedOutput.declaration, {})
     }
 
     async doit() {
@@ -668,7 +666,7 @@ class TestbedOutput extends Step {
 
 class TestbedInput extends Step {
     static readonly gitid: 'mbenzekri/pojoe/steps/TestbedInput'
-    static readonly decl: Declaration = {
+    static readonly declaration: Declaration = {
         gitid: TestbedInput.gitid,
         title: 'get pojos from the tested step and validate',
         desc: 'this step receives all the pojos of the tested step and validate them among the expected data',
@@ -679,7 +677,7 @@ class TestbedInput extends Step {
         },
     }
     constructor() {
-        super(TestbedInput.decl, {})
+        super(TestbedInput.declaration, {})
     }
 
     async doit() {
@@ -712,8 +710,8 @@ class TestbedInput extends Step {
  * WARNING !!! du to singleton TESTCASE
  * It's ACTUALY IMPOSSIBLE TO RUN MULTIPLE TESTCASE in parallele
  */
-Step.Register(TestbedOutput.decl, (params: ParamsMap): Step => new TestbedOutput())
-Step.Register(TestbedInput.decl, (params: ParamsMap): Step => new TestbedInput())
+Step.register(TestbedOutput.declaration, TestbedOutput)
+Step.register(TestbedInput.declaration, TestbedInput)
 
 class Testbed extends Batch {
     static pipes(stepid: string): PipeObj[] {

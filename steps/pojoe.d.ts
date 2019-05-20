@@ -3,9 +3,9 @@ declare const EOP = "EOF";
 /**
  *  on memory step registry (Step Map)
  */
-declare type StepModule = {
+declare type TypeStep = {
+    new (params: ParamsMap): Step;
     declaration: Declaration;
-    create: (params: ParamsMap) => Step;
 };
 declare type Declaration = {
     gitid: string;
@@ -181,8 +181,8 @@ declare class InputPort extends Port {
  * @property params : parameters (dynamic see Proxy in constructor)
  */
 declare abstract class Step {
-    static Register(declaration: Declaration, create: (p: ParamsMap) => Step): void;
-    static getstep(stepid: string): StepModule;
+    static register(declaration: Declaration, aclass: TypeStep): void;
+    static getstep(stepid: string): TypeStep;
     readonly id: any;
     readonly decl: Declaration;
     private _inports;

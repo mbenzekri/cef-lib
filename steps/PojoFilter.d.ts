@@ -1,5 +1,6 @@
-import * as pe from './pojoe';
-export default class PojoFilter extends pe.Step {
-    constructor(params: pe.ParamsMap);
+import { Step, Declaration, ParamsMap } from './pojoe';
+export declare class PojoFilter extends Step {
+    static declaration: Declaration;
+    constructor(params: ParamsMap);
     doit(): Promise<void>;
 }

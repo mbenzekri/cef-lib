@@ -1,6 +1,6 @@
-import * as pe from './pojoe'
+import { Step, Declaration, ParamsMap, EOP } from './pojoe'
 
-const declaration: pe.Declaration = {
+const declaration: Declaration = {
     gitid: 'mbenzekri/pojoe/steps/PojoProducer',
     title: 'output a pojo',
     desc: 'this step emit one pojo provided in a parameter object literal expression',
@@ -19,9 +19,9 @@ const declaration: pe.Declaration = {
     }
 }
 
-export default class PojoProducer extends pe.Step {
-    static readonly declaration = declaration;
-    constructor (params: pe.ParamsMap) {
+export class PojoProducer extends Step {
+    static declaration: Declaration = declaration
+    constructor (params: ParamsMap) {
         super(declaration, params)
     }
     async doit() {
@@ -29,4 +29,4 @@ export default class PojoProducer extends pe.Step {
     }
 }
 
-pe.Step.Register(declaration, (params: pe.ParamsMap) =>  new PojoProducer(params));
+Step.register(declaration, PojoProducer);

@@ -162,7 +162,7 @@ class Batch {
         process.argv.forEach((arg, i) => {
             if (i < 2)
                 return; // skip 'node.exe' and 'script.js'
-            if (/^--.*==.*$/.test(arg)) {
+            if (/^--.*=.*$/.test(arg)) {
                 const [name, value] = arg.replace(/^--?/, '').split(/=/);
                 if (this._flowchart.args[name]) {
                     const type = this._flowchart.args[name].type;
@@ -209,8 +209,7 @@ class Batch {
     initsteps() {
         // construct all steps 
         this._flowchart.steps.forEach(stepobj => {
-            let module;
-            module = REGISTRY[stepobj.gitid];
+            let aclass = REGISTRY[stepobj.gitid];
             if (!module) {
                 // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
                 const items = stepobj.gitid.split('/');
@@ -224,8 +223,8 @@ class Batch {
                     error(this, `unable to locate step "${stepobj.gitid}"  module searched with ${globpath}`);
                 }
             }
-            module = REGISTRY[stepobj.gitid];
-            const step = module.create(stepobj.params);
+            aclass = REGISTRY[stepobj.gitid];
+            const step = new aclass(stepobj.params);
             step.initparams(this.args, this.globs);
             this._steps.set(stepobj.id, step);
         });
@@ -253,7 +252,12 @@ class Batch {
             this.initsteps();
             Object.freeze(this);
             const steps = Array.from(this._steps.values());
-            stepscb && stepscb(steps);
+            try {
+                stepscb && stepscb(steps);
+            }
+            catch (e) {
+                this.error(`onstart callback error due to due to ${e.message}`);
+            }
             debug(this, `executing all the batch's steps `);
             let promises = [];
             for (let step of steps) {
@@ -459,8 +463,8 @@ class Step {
         Object.keys(decl.outputs).forEach(name => this._outports[name] = new OutputPort(name, this));
         this._params = params;
     }
-    static Register(declaration, create) {
-        REGISTRY[declaration.gitid] = { declaration, create };
+    static register(declaration, aclass) {
+        REGISTRY[declaration.gitid] = aclass;
     }
     static getstep(stepid) {
         return REGISTRY[stepid];
@@ -590,7 +594,7 @@ class Step {
 exports.Step = Step;
 class TestbedOutput extends Step {
     constructor() {
-        super(TestbedOutput.decl, {});
+        super(TestbedOutput.declaration, {});
     }
     doit() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -607,7 +611,7 @@ class TestbedOutput extends Step {
     }
 }
 TestbedOutput.gitid = 'mbenzekri/pojoe/steps/TestbedOutput';
-TestbedOutput.decl = {
+TestbedOutput.declaration = {
     gitid: TestbedOutput.gitid,
     title: 'output test pojos to the tested step',
     desc: 'this step inject all the provided test pojos into the tested step',
@@ -619,7 +623,7 @@ TestbedOutput.decl = {
 };
 class TestbedInput extends Step {
     constructor() {
-        super(TestbedInput.decl, {});
+        super(TestbedInput.declaration, {});
     }
     doit() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -649,7 +653,7 @@ class TestbedInput extends Step {
         });
     }
 }
-TestbedInput.decl = {
+TestbedInput.declaration = {
     gitid: TestbedInput.gitid,
     title: 'get pojos from the tested step and validate',
     desc: 'this step receives all the pojos of the tested step and validate them among the expected data',
@@ -663,8 +667,8 @@ TestbedInput.decl = {
  * WARNING !!! du to singleton TESTCASE
  * It's ACTUALY IMPOSSIBLE TO RUN MULTIPLE TESTCASE in parallele
  */
-Step.Register(TestbedOutput.decl, (params) => new TestbedOutput());
-Step.Register(TestbedInput.decl, (params) => new TestbedInput());
+Step.register(TestbedOutput.declaration, TestbedOutput);
+Step.register(TestbedInput.declaration, TestbedInput);
 class Testbed extends Batch {
     static pipes(stepid) {
         const stepmod = REGISTRY[stepid];

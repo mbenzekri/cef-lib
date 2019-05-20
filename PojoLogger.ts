@@ -1,6 +1,6 @@
-import * as pe from './pojoe'
+import { Step, Declaration, ParamsMap, EOP } from './pojoe'
 
-const declaration: pe.Declaration = {
+const declaration: Declaration = {
     gitid: 'mbenzekri/pojoe/steps/PojoLogger',
     title: 'Logs pojos',
     desc: ' logs each inputed pojo through console',
@@ -20,17 +20,18 @@ const declaration: pe.Declaration = {
     }
 }
 
-export default class PojoLogger extends pe.Step {
-    constructor (params: pe.ParamsMap) {
+export class PojoLogger extends Step {
+    static declaration: Declaration = declaration
+    constructor(params: ParamsMap) {
         super(declaration, params)
     }
     async doit() {
         let pojo = await this.input('pojos');
-        while (pojo !== pe.EOP) {
+        while (pojo !== EOP) {
             console.log(this.params.expression)
             pojo = await this.input('pojos');
-        } 
+        }
     }
 }
 
-pe.Step.Register(declaration, (params: pe.ParamsMap): pe.Step =>  new PojoLogger(params));
+Step.register(declaration, PojoLogger);
