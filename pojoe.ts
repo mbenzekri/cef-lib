@@ -1,162 +1,16 @@
 import * as uuid from 'uuid/v4'
+import * as os from 'os';
 import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os'
+import { Declaration, Flowchart, Testcase, TestData, ParamsMap,State, PipeObj, StepObj, OutPortsMap, InPortsMap, error, debug, argfunc, globfunc, paramfunc,  quote, gettype } from './types'
 
 let DEBUG = false;
 
-const SOP = 'SOF';  // Start Of Pojos
-const EOP = 'EOF';  // End Of Pojos
+const SOP = 'SOP';  // Start Of Pojos
+const EOP = 'EOP';  // End Of Pojos
 
-/**
- *  on memory step registry (Step Map)
- */
 type TypeStep = { new(params: ParamsMap): Step; declaration: Declaration; }
 const REGISTRY: { [key: string]: TypeStep } = {}
 
-type Declaration = {
-    gitid: string;
-    title: string;
-    desc: string;
-    features?: string[];
-    parameters: ParamsMapDef;
-    inputs: InPortsMap;
-    outputs: OutPortsMap;
-    examples?: { title: string, desc: string }[];
-}
-
-enum PortType { input, output, }
-
-enum State { idle, started, ended, error }
-
-//enum BaseType { int, ints, number, numbers, boolean, date, dates, regexp, string, strings }
-//type BaseType = ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings')
-
-type ParamsMapDef = { [key: string]: { title: string, desc?: string; type: string, default: string, examples?: { value: string, title: string, desc?: string }[] } };
-type InPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
-type OutPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
-type PropertiesMap = { [key: string]: { title: string, desc?: string, type: string } }
-type ParamsMap = { [key: string]: string }
-type TypedParamsMap = { [key: string]: { value: string, type: string, desc: string } }
-
-interface StepObj {
-    id: string;
-    gitid: string;
-    params: ParamsMap;
-}
-
-interface PipeObj {
-    from: string;
-    outport: string;
-    to: string;
-    inport: string;
-}
-
-type Flowchart = {
-    id: string;
-    title: string;
-    desc: string;
-    args: TypedParamsMap;
-    globs: TypedParamsMap;
-    steps: StepObj[];
-    pipes: PipeObj[];
-}
-
-type TestData = { [key: string]: any[] }
-type Testcase = {
-    stepid: string;
-    title: string;
-    params: ParamsMap;
-    injected: TestData;
-    expected: TestData;
-    onstart?: (teststep: Step) => void
-    onend?: (teststep: Step) => void
-}
-
-
-function error(obj: any, message: string): boolean {
-    const e = new Error()
-    const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':')
-    const line = (frame.length > 1) ? frame[frame.length - 2] : '-'
-    const script = path.basename(__filename)
-    throw new Error(`${script}@${line}: ${obj.toString()} => ${message}`)
-}
-
-function debug(obj: any, message: string): boolean {
-    if (DEBUG) {
-        const e = new Error()
-        const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':')
-        const line = (frame.length > 1) ? frame[frame.length - 2] : '-'
-        const script = path.basename(__filename)
-        console.log(`${script}@${line}: ${obj.toString()} => ${message}`)
-    }
-    return true
-}
-
-function quote(str:string) {
-    let quoted = str.replace(/\\{2}/g,'²')
-    quoted = quoted.replace(/\\{1}([^fnrt"])/g,'\\\\$1')
-    quoted = quoted.replace(/²/g,'\\\\') 
-    return quoted
-} 
-
-function bodyfunc(type: string, strvalue: string): string {
-    const cleanstr = strvalue.replace(/\`/, '\\`')
-    let body = `return \`${cleanstr}\``;
-    switch (type) {
-        case 'int': body = `return parseInt(\`${cleanstr}\`,10)`;
-            break;
-        case 'int[]': body = `return (\`${cleanstr}\`).split(/,/).map(v => parseInt(v,10))`;
-            break;
-        case 'number': body = `return parseFloat(\`${cleanstr}\`)`;
-            break;
-        case 'number[]': body = `return (\`${cleanstr}\`).split(/,/).map(v => parseFloat(v))`;
-            break;
-        case 'boolean': body = `return \`${cleanstr}\`=== 'true' ? true : false `;
-            break;
-        case 'boolean[]': body = `return  (\`${cleanstr}\`).split(/,/).map(v => v === 'true' ? true : false) `;
-            break;
-        case 'date': body = `return new Date(\`${cleanstr}\`)`;
-            break;
-        case 'date[]': body = `return (\`${cleanstr}\`).split(/,/).map(v => new Date(v))`;
-            break;
-        case 'json': body = ` 
-            const expanded = String.raw\`${cleanstr}\`;
-            let quoted = expanded
-            //let quoted = quote(expanded)
-            let parsed = {}
-            try {
-                parsed=JSON.parse(quoted)
-            } catch(e) { 
-                throw(new Error('JSON parsing fails for parameter value '+ quoted)) 
-            }
-            return parsed
-            `;
-            break;
-        case 'json[]': body = `const arr=JSON.parse(\`${cleanstr}\`.replace(/\\{1}[^fnrt"]/,'\\\\')); return Array.isArray(arr) ? arr : [arr] `;
-            break;
-        case 'regexp': body = `return new RegExp(\`${cleanstr}\`)`;
-            break;
-        case 'string': body = `return (String.raw\`${cleanstr}\`)`;
-            break;
-        case 'string[]': body = `return (String.raw\`${cleanstr}\`).split(/,/)`;
-            break;
-    }
-    return body;
-}
-
-function argfunc(type: string, strvalue: string): Function {
-    return new Function('quote', bodyfunc(type, strvalue));
-}
-
-function globfunc(type: string, strvalue: string): Function {
-    const body = bodyfunc(type, strvalue)
-    return new Function('args', 'globs', 'quote', body);
-}
-
-function paramfunc(type: string, strvalue: string): Function {
-    return new Function('args', 'globs', 'params', 'pojo', 'quote', bodyfunc(type, strvalue));
-}
 
 /**
  * class defining a batch to run in cloud engine factory
@@ -216,7 +70,8 @@ class Batch {
         this._args = new Proxy(argv, {
             get: (target, property) => {
                 try {
-                    return target[property](quote);
+                    let type = gettype(this._flowchart.args[property.toString()].type)
+                    return target[property](quote,type);
                 } catch (e) {
                     error(this, `error "${e.message}" when evaluating arg parameter "${String(property)}"`);
                 }
@@ -237,7 +92,8 @@ class Batch {
         this._globs = new Proxy(globs, {
             get: (target, property) => {
                 try {
-                    return target[property](this._args, this.globs,quote);
+                    let type = gettype(this._flowchart.globs[property.toString()].type)
+                    return target[property](this._args, this.globs,quote,type);
                 } catch (e) {
                     error(this, `error "${e.message}" when evaluating global parameter "${String(property)}"`);
                 }
@@ -286,12 +142,12 @@ class Batch {
     }
 
     async run(stepscb : (steps: Step[]) => void) {
-        debug(this, `Starting batch (pid: ${process.pid})`)
-        debug(this, `initialising arguments`)
+        DEBUG && debug(this, `Starting batch (pid: ${process.pid})`)
+        DEBUG && debug(this, `initialising arguments`)
         this.initargs()
-        debug(this, `initialising globals `)
+        DEBUG && debug(this, `initialising globals`)
         this.initglobs()
-        debug(this, `initialising steps`)
+        DEBUG && debug(this, `initialising steps`)
         this.initsteps()
         Object.freeze(this)
 
@@ -301,7 +157,7 @@ class Batch {
         } catch(e) {
             this.error(`onstart callback error due to due to ${e.message}`)
         }
-        debug(this, `executing all the batch's steps `)
+        DEBUG && debug(this, `executing all the batch's steps `)
         let promises: Promise<any>[] = []
         for (let step of steps) {
             promises.push(step.exec())
@@ -559,7 +415,8 @@ abstract class Step {
         this._params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
-                    return target[property](args, globs, this._params, this.pojo,quote);
+                    let type = gettype(this.decl.parameters[property.toString()].type)
+                    return target[property](args, globs, this._params, this.pojo,quote,type);
                 } catch (e) {
                     error(this, `error when evaluating step parameter "${String(property)}" due to "${e.message}" `);
                 }
@@ -600,9 +457,9 @@ abstract class Step {
     async output(outport: string, pojo: any) {
         const port = this._outports[outport]
         !port && error(this, `unknown output port  "${outport}".`);
-        debug(this, `awaiting for output into port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `)
+        DEBUG && debug(this, `awaiting for output into port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `)
         const result = await port.put(pojo)
-        debug(this, `pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `)
+        DEBUG && debug(this, `pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `)
     }
 
     /**
@@ -612,22 +469,22 @@ abstract class Step {
     async input(inport: string) {
         const port = this._inports[inport]
         !port && error(this, `unknown input port  "${inport}".`);
-        debug(this, `awaiting for input into port "${port.name}" `)
+        DEBUG && debug(this, `awaiting for input into port "${port.name}" `)
         this.pojo = await port.get()
-        debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0, 100)}" `)
+        DEBUG && debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0, 100)}" `)
         return this.pojo
     }
 
     async exec() {
-        debug(this, `init phase `)
+        DEBUG && debug(this, `init phase `)
         await this.init()
-        debug(this, `start phase `)
+        DEBUG && debug(this, `start phase `)
         await this.start()
-        debug(this, `doit phase `)
+        DEBUG && debug(this, `doit phase `)
         await this.doit()
-        debug(this, `end phase `)
+        DEBUG && debug(this, `end phase `)
         await this.end()
-        debug(this, `terminate phase `)
+        DEBUG && debug(this, `terminate phase `)
         await this.terminate()
     }
 }

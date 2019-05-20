@@ -106,7 +106,6 @@ steplist.forEach(name => {
             parameter.examples && parameter.examples.forEach(ex => {
                 fs.appendFileSync(readme, `>|\`${ex.value}\`| ${ex.title} |\n`);
             });
-            fs.appendFileSync(readme, `\n`);
         });
         const hasInputs = decl.inputs && Object.keys(decl.inputs).length;
         hasInputs && fs.appendFileSync(readme, `## inputs\n`);

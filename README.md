@@ -22,7 +22,6 @@
 > **pojo** *{json}* -- the pojo literal  -- default = `${JSON.stringify(params.pojo)}`
 > 
 
-
 ## outputs
 >- **pojo** -- the pojo 
 
@@ -40,7 +39,6 @@
 ## parameters
 > **test** *{boolean}* -- filter expression  -- default = `true`
 > 
-
 ## inputs
 >- **pojos** -- pojo to filter 
 
@@ -61,7 +59,6 @@
 ## parameters
 > **expression** *{string}* -- expression to log  -- default = `${JSON.stringify(pojo)}`
 > 
-
 ## inputs
 >- **pojos** -- pojo to log 
 

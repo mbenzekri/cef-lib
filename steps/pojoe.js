@@ -9,117 +9,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const uuid = require("uuid/v4");
-const fs = require("fs");
-const path = require("path");
 const os = require("os");
+const fs = require("fs");
+const types_1 = require("./types");
 let DEBUG = false;
-const SOP = 'SOF'; // Start Of Pojos
+const SOP = 'SOP'; // Start Of Pojos
 exports.SOP = SOP;
-const EOP = 'EOF'; // End Of Pojos
+const EOP = 'EOP'; // End Of Pojos
 exports.EOP = EOP;
 const REGISTRY = {};
-var PortType;
-(function (PortType) {
-    PortType[PortType["input"] = 0] = "input";
-    PortType[PortType["output"] = 1] = "output";
-})(PortType || (PortType = {}));
-var State;
-(function (State) {
-    State[State["idle"] = 0] = "idle";
-    State[State["started"] = 1] = "started";
-    State[State["ended"] = 2] = "ended";
-    State[State["error"] = 3] = "error";
-})(State || (State = {}));
-function error(obj, message) {
-    const e = new Error();
-    const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':');
-    const line = (frame.length > 1) ? frame[frame.length - 2] : '-';
-    const script = path.basename(__filename);
-    throw new Error(`${script}@${line}: ${obj.toString()} => ${message}`);
-}
-function debug(obj, message) {
-    if (DEBUG) {
-        const e = new Error();
-        const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':');
-        const line = (frame.length > 1) ? frame[frame.length - 2] : '-';
-        const script = path.basename(__filename);
-        console.log(`${script}@${line}: ${obj.toString()} => ${message}`);
-    }
-    return true;
-}
-function quote(str) {
-    let quoted = str.replace(/\\{2}/g, '²');
-    quoted = quoted.replace(/\\{1}([^fnrt"])/g, '\\\\$1');
-    quoted = quoted.replace(/²/g, '\\\\');
-    return quoted;
-}
-function bodyfunc(type, strvalue) {
-    const cleanstr = strvalue.replace(/\`/, '\\`');
-    let body = `return \`${cleanstr}\``;
-    switch (type) {
-        case 'int':
-            body = `return parseInt(\`${cleanstr}\`,10)`;
-            break;
-        case 'int[]':
-            body = `return (\`${cleanstr}\`).split(/,/).map(v => parseInt(v,10))`;
-            break;
-        case 'number':
-            body = `return parseFloat(\`${cleanstr}\`)`;
-            break;
-        case 'number[]':
-            body = `return (\`${cleanstr}\`).split(/,/).map(v => parseFloat(v))`;
-            break;
-        case 'boolean':
-            body = `return \`${cleanstr}\`=== 'true' ? true : false `;
-            break;
-        case 'boolean[]':
-            body = `return  (\`${cleanstr}\`).split(/,/).map(v => v === 'true' ? true : false) `;
-            break;
-        case 'date':
-            body = `return new Date(\`${cleanstr}\`)`;
-            break;
-        case 'date[]':
-            body = `return (\`${cleanstr}\`).split(/,/).map(v => new Date(v))`;
-            break;
-        case 'json':
-            body = ` 
-            const expanded = String.raw\`${cleanstr}\`;
-            let quoted = expanded
-            //let quoted = quote(expanded)
-            let parsed = {}
-            try {
-                parsed=JSON.parse(quoted)
-            } catch(e) { 
-                throw(new Error('JSON parsing fails for parameter value '+ quoted)) 
-            }
-            return parsed
-            `;
-            break;
-        case 'json[]':
-            body = `const arr=JSON.parse(\`${cleanstr}\`.replace(/\\{1}[^fnrt"]/,'\\\\')); return Array.isArray(arr) ? arr : [arr] `;
-            break;
-        case 'regexp':
-            body = `return new RegExp(\`${cleanstr}\`)`;
-            break;
-        case 'string':
-            body = `return (String.raw\`${cleanstr}\`)`;
-            break;
-        case 'string[]':
-            body = `return (String.raw\`${cleanstr}\`).split(/,/)`;
-            break;
-    }
-    return body;
-}
-function argfunc(type, strvalue) {
-    return new Function('quote', bodyfunc(type, strvalue));
-}
-function globfunc(type, strvalue) {
-    const body = bodyfunc(type, strvalue);
-    return new Function('args', 'globs', 'quote', body);
-}
-function paramfunc(type, strvalue) {
-    return new Function('args', 'globs', 'params', 'pojo', 'quote', bodyfunc(type, strvalue));
-}
 /**
  * class defining a batch to run in cloud engine factory
  * @member batch the js plain object description
@@ -141,21 +39,21 @@ class Batch {
     get globs() { return this._globs; }
     get args() { return this._args; }
     toString() { return `${this._flowchart.id}[Batch: ${this._flowchart.title}]`; }
-    error(message) { error(this, message); }
+    error(message) { types_1.error(this, message); }
     initargs() {
         const argv = {};
         // default value in batch declaration
         Object.keys(this._flowchart.args).forEach(name => {
             const type = this._flowchart.args[name].type;
             const value = this._flowchart.args[name].value;
-            argv[name] = argfunc(type, value);
+            argv[name] = types_1.argfunc(type, value);
         });
         // then env variables
         Object.keys(this._flowchart.args).forEach(name => {
             if (name in process.env) {
                 const type = this._flowchart.args[name].type;
                 const value = process.env[name];
-                argv[name] = argfunc(type, value);
+                argv[name] = types_1.argfunc(type, value);
             }
         });
         // then process parameters
@@ -167,7 +65,7 @@ class Batch {
                 if (this._flowchart.args[name]) {
                     const type = this._flowchart.args[name].type;
                     if (name in this._flowchart.args) {
-                        this._args[name] = argfunc(type, value);
+                        this._args[name] = types_1.argfunc(type, value);
                     }
                 }
             }
@@ -175,10 +73,11 @@ class Batch {
         this._args = new Proxy(argv, {
             get: (target, property) => {
                 try {
-                    return target[property](quote);
+                    let type = types_1.gettype(this._flowchart.args[property.toString()].type);
+                    return target[property](types_1.quote, type);
                 }
                 catch (e) {
-                    error(this, `error "${e.message}" when evaluating arg parameter "${String(property)}"`);
+                    types_1.error(this, `error "${e.message}" when evaluating arg parameter "${String(property)}"`);
                 }
             },
         });
@@ -189,15 +88,16 @@ class Batch {
         Object.keys(this._flowchart.globs).forEach(name => {
             const type = this._flowchart.globs[name].type;
             const value = this._flowchart.globs[name].value;
-            globs[name] = globfunc(type, value);
+            globs[name] = types_1.globfunc(type, value);
         });
         this._globs = new Proxy(globs, {
             get: (target, property) => {
                 try {
-                    return target[property](this._args, this.globs, quote);
+                    let type = types_1.gettype(this._flowchart.globs[property.toString()].type);
+                    return target[property](this._args, this.globs, types_1.quote, type);
                 }
                 catch (e) {
-                    error(this, `error "${e.message}" when evaluating global parameter "${String(property)}"`);
+                    types_1.error(this, `error "${e.message}" when evaluating global parameter "${String(property)}"`);
                 }
             },
         });
@@ -220,7 +120,7 @@ class Batch {
                     module = require(globpath);
                 }
                 catch (e) {
-                    error(this, `unable to locate step "${stepobj.gitid}"  module searched with ${globpath}`);
+                    types_1.error(this, `unable to locate step "${stepobj.gitid}"  module searched with ${globpath}`);
                 }
             }
             aclass = REGISTRY[stepobj.gitid];
@@ -231,24 +131,24 @@ class Batch {
         // connect all steps 
         this._flowchart.pipes.forEach((pipeobj, i) => {
             const step = this._steps.get(pipeobj.from);
-            step || error(this, `unknown from step "${pipeobj.from}" in flowchart pipes no ${i}`);
+            step || types_1.error(this, `unknown from step "${pipeobj.from}" in flowchart pipes no ${i}`);
             const target = this._steps.get(pipeobj.to);
-            target || error(this, `unknown to step "${pipeobj.to}" in flowchart pipes no ${i}`);
+            target || types_1.error(this, `unknown to step "${pipeobj.to}" in flowchart pipes no ${i}`);
             const outport = step.outport(pipeobj.outport);
-            outport || error(this, `unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
+            outport || types_1.error(this, `unknown outport "${pipeobj.outport}" in flowchart pipes no ${i}`);
             const inport = target.inport(pipeobj.inport);
-            inport || error(this, `unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
+            inport || types_1.error(this, `unknown inport "${pipeobj.inport}" in flowchart pipes no ${i}`);
             step.connect(outport, inport, (f) => f);
         });
     }
     run(stepscb) {
         return __awaiter(this, void 0, void 0, function* () {
-            debug(this, `Starting batch (pid: ${process.pid})`);
-            debug(this, `initialising arguments`);
+            DEBUG && types_1.debug(this, `Starting batch (pid: ${process.pid})`);
+            DEBUG && types_1.debug(this, `initialising arguments`);
             this.initargs();
-            debug(this, `initialising globals `);
+            DEBUG && types_1.debug(this, `initialising globals`);
             this.initglobs();
-            debug(this, `initialising steps`);
+            DEBUG && types_1.debug(this, `initialising steps`);
             this.initsteps();
             Object.freeze(this);
             const steps = Array.from(this._steps.values());
@@ -258,7 +158,7 @@ class Batch {
             catch (e) {
                 this.error(`onstart callback error due to due to ${e.message}`);
             }
-            debug(this, `executing all the batch's steps `);
+            DEBUG && types_1.debug(this, `executing all the batch's steps `);
             let promises = [];
             for (let step of steps) {
                 promises.push(step.exec());
@@ -287,7 +187,7 @@ class Pipe {
             this._fd = fs.openSync(this.tmpfile, 'a+');
         }
         catch (e) {
-            error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to ${e.message}`);
+            types_1.error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to ${e.message}`);
         }
     }
     closed(reader) {
@@ -316,12 +216,12 @@ class Pipe {
         return new Promise((resolve, reject) => {
             if (r.read < this._written) {
                 fs.read(this._fd, b, 0, b.byteLength, r.filepos, (err, bytes) => {
-                    err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to ${err.message}`);
+                    err && types_1.error('Pipe', `unable to read fifo "${this.tmpfile}" due to ${err.message}`);
                     r.filepos += bytes;
                     const jsonlen = parseInt(b.toString('utf8'), 10);
                     buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
                     fs.read(this._fd, buf, 0, jsonlen, r.filepos, (err, bytes) => {
-                        err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to ${err.message}`);
+                        err && types_1.error('Pipe', `unable to read tempfile "${this.tmpfile}" due to ${err.message}`);
                         r.read++;
                         r.filepos += bytes;
                         const obj = JSON.parse(buf.toString('utf8', 0, jsonlen));
@@ -350,7 +250,7 @@ class Pipe {
             const str = len + json + '\n';
             // we must write len+json in same call to avoid separate write du to concurrency
             fs.write(this._fd, str, this._filepos, (err, bytes) => {
-                err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to ${err.message}`);
+                err && types_1.error('Pipe', `unable to write tempfile "${this.tmpfile}" due to ${err.message}`);
                 this._filepos += bytes;
                 this._written++;
                 // release waiting readers
@@ -370,7 +270,7 @@ class Pipe {
  */
 class Port {
     constructor(name, step, capacity = 1) {
-        this.state = State.idle;
+        this.state = types_1.State.idle;
         this.name = name;
         this.step = step;
     }
@@ -378,14 +278,14 @@ class Port {
     ;
     get isoutput() { return false; }
     ;
-    get isstarted() { return this.state === State.started; }
-    get isended() { return this.state === State.ended; }
-    get isidle() { return this.state === State.idle; }
+    get isstarted() { return this.state === types_1.State.started; }
+    get isended() { return this.state === types_1.State.ended; }
+    get isidle() { return this.state === types_1.State.idle; }
     setState(pojo) {
         if (pojo === SOP && this.isidle)
-            this.state = State.started;
+            this.state = types_1.State.started;
         if (pojo === EOP && this.isstarted)
-            this.state = State.ended;
+            this.state = types_1.State.ended;
     }
 }
 class OutputPort extends Port {
@@ -456,7 +356,7 @@ class Step {
         //private ports: { [key: string]: Port } = {}
         this._inports = {};
         this._outports = {};
-        this.state = State.idle;
+        this.state = types_1.State.idle;
         this._params = {};
         this.decl = decl;
         Object.keys(decl.inputs).forEach(name => this._inports[name] = new InputPort(name, this));
@@ -483,9 +383,9 @@ class Step {
     get type() { return this.decl.gitid; }
     get paramlist() { return Object.keys(this.decl.parameters); }
     get params() { return this._params; }
-    get isidle() { return this.state === State.idle; }
-    get isstarted() { return this.state === State.started; }
-    get isended() { return this.state === State.ended; }
+    get isidle() { return this.state === types_1.State.idle; }
+    get isstarted() { return this.state === types_1.State.started; }
+    get isended() { return this.state === types_1.State.ended; }
     get inports() { return Object['values'](this._inports); }
     get outports() { return Object['values'](this._outports); }
     get isinitial() { return this.inports.length === 0; }
@@ -497,8 +397,8 @@ class Step {
     isoutport(portname) { return this._outports[portname] ? true : false; }
     port(name) { return this._inports[name] || this._outports[name]; }
     log(message) { console.log(message); }
-    error(message) { error(this, message); }
-    debug(message) { debug(this, message); }
+    error(message) { types_1.error(this, message); }
+    debug(message) { types_1.debug(this, message); }
     /**
      * initialize dynamic step parameter access
      * @param args: arguments map provided by the batch
@@ -507,16 +407,17 @@ class Step {
     initparams(args, globs) {
         const paramsfn = {};
         this.paramlist.forEach(name => {
-            !(name in this.decl.parameters) && error(this, `unknown parameter "${name}" it must be one of "${toString()}"`);
-            paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name] || this.decl.parameters[name].default);
+            !(name in this.decl.parameters) && types_1.error(this, `unknown parameter "${name}" it must be one of "${toString()}"`);
+            paramsfn[name] = types_1.paramfunc(this.decl.parameters[name].type, this._params[name] || this.decl.parameters[name].default);
         });
         this._params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
-                    return target[property](args, globs, this._params, this.pojo, quote);
+                    let type = types_1.gettype(this.decl.parameters[property.toString()].type);
+                    return target[property](args, globs, this._params, this.pojo, types_1.quote, type);
                 }
                 catch (e) {
-                    error(this, `error when evaluating step parameter "${String(property)}" due to "${e.message}" `);
+                    types_1.error(this, `error when evaluating step parameter "${String(property)}" due to "${e.message}" `);
                 }
             },
         });
@@ -529,7 +430,7 @@ class Step {
      * @param filter filter function for flowing data
      */
     connect(outport, inport, filter = f => true) {
-        this.outports.indexOf(outport) >= 0 || error(this, `output port "${outport.name}" doesnt exists in this step trying to connect`);
+        this.outports.indexOf(outport) >= 0 || types_1.error(this, `output port "${outport.name}" doesnt exists in this step trying to connect`);
         inport.from(outport.fifo);
     }
     init() {
@@ -556,10 +457,10 @@ class Step {
     output(outport, pojo) {
         return __awaiter(this, void 0, void 0, function* () {
             const port = this._outports[outport];
-            !port && error(this, `unknown output port  "${outport}".`);
-            debug(this, `awaiting for output into port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `);
+            !port && types_1.error(this, `unknown output port  "${outport}".`);
+            DEBUG && types_1.debug(this, `awaiting for output into port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `);
             const result = yield port.put(pojo);
-            debug(this, `pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `);
+            DEBUG && types_1.debug(this, `pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `);
         });
     }
     /**
@@ -569,24 +470,24 @@ class Step {
     input(inport) {
         return __awaiter(this, void 0, void 0, function* () {
             const port = this._inports[inport];
-            !port && error(this, `unknown input port  "${inport}".`);
-            debug(this, `awaiting for input into port "${port.name}" `);
+            !port && types_1.error(this, `unknown input port  "${inport}".`);
+            DEBUG && types_1.debug(this, `awaiting for input into port "${port.name}" `);
             this.pojo = yield port.get();
-            debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0, 100)}" `);
+            DEBUG && types_1.debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0, 100)}" `);
             return this.pojo;
         });
     }
     exec() {
         return __awaiter(this, void 0, void 0, function* () {
-            debug(this, `init phase `);
+            DEBUG && types_1.debug(this, `init phase `);
             yield this.init();
-            debug(this, `start phase `);
+            DEBUG && types_1.debug(this, `start phase `);
             yield this.start();
-            debug(this, `doit phase `);
+            DEBUG && types_1.debug(this, `doit phase `);
             yield this.doit();
-            debug(this, `end phase `);
+            DEBUG && types_1.debug(this, `end phase `);
             yield this.end();
-            debug(this, `terminate phase `);
+            DEBUG && types_1.debug(this, `terminate phase `);
             yield this.terminate();
         });
     }
@@ -672,7 +573,7 @@ Step.register(TestbedInput);
 class Testbed extends Batch {
     static pipes(stepid) {
         const stepmod = REGISTRY[stepid];
-        stepmod || error('Testbed', `${stepid} not registered`);
+        stepmod || types_1.error('Testbed', `${stepid} not registered`);
         const outpipes = Object.keys(stepmod.declaration.inputs).map(inport => ({ from: 'testbedoutput', outport: inport, to: 'testtostep', inport: inport }));
         const inpipes = Object.keys(stepmod.declaration.outputs).map(outport => ({ from: 'testtostep', outport: outport, to: 'testbedinput', inport: outport }));
         const outdecl = REGISTRY[TestbedOutput.gitid].declaration;
