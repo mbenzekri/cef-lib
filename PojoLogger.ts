@@ -21,7 +21,7 @@ const declaration: Declaration = {
 }
 
 export class PojoLogger extends Step {
-    static declaration: Declaration = declaration
+    static readonly declaration = declaration
     constructor(params: ParamsMap) {
         super(declaration, params)
     }
