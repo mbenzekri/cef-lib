@@ -34,4 +34,4 @@ export class PojoLogger extends Step {
     }
 }
 
-Step.register(declaration, PojoLogger);
+Step.register(PojoLogger);

@@ -463,8 +463,8 @@ class Step {
         Object.keys(decl.outputs).forEach(name => this._outports[name] = new OutputPort(name, this));
         this._params = params;
     }
-    static register(declaration, aclass) {
-        REGISTRY[declaration.gitid] = aclass;
+    static register(aclass) {
+        REGISTRY[aclass.declaration.gitid] = aclass;
     }
     static getstep(stepid) {
         return REGISTRY[stepid];
@@ -667,8 +667,8 @@ TestbedInput.declaration = {
  * WARNING !!! du to singleton TESTCASE
  * It's ACTUALY IMPOSSIBLE TO RUN MULTIPLE TESTCASE in parallele
  */
-Step.register(TestbedOutput.declaration, TestbedOutput);
-Step.register(TestbedInput.declaration, TestbedInput);
+Step.register(TestbedOutput);
+Step.register(TestbedInput);
 class Testbed extends Batch {
     static pipes(stepid) {
         const stepmod = REGISTRY[stepid];

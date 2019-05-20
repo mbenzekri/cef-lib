@@ -43,5 +43,5 @@ class PojoLogger extends pojoe_1.Step {
 }
 PojoLogger.declaration = declaration;
 exports.PojoLogger = PojoLogger;
-pojoe_1.Step.register(declaration, PojoLogger);
+pojoe_1.Step.register(PojoLogger);
 //# sourceMappingURL=PojoLogger.js.map

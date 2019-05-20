@@ -29,4 +29,4 @@ export class PojoProducer extends Step {
     }
 }
 
-Step.register(declaration, PojoProducer);
+Step.register(PojoProducer);

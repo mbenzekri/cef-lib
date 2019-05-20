@@ -483,8 +483,8 @@ class InputPort extends Port {
 
 
 abstract class Step {
-    static register(declaration: Declaration, aclass: TypeStep) {
-        REGISTRY[declaration.gitid] = aclass
+    static register(aclass: TypeStep) {
+        REGISTRY[aclass.declaration.gitid] = aclass
     }
     static getstep(stepid: string) {
         return REGISTRY[stepid] 
@@ -710,8 +710,8 @@ class TestbedInput extends Step {
  * WARNING !!! du to singleton TESTCASE
  * It's ACTUALY IMPOSSIBLE TO RUN MULTIPLE TESTCASE in parallele
  */
-Step.register(TestbedOutput.declaration, TestbedOutput)
-Step.register(TestbedInput.declaration, TestbedInput)
+Step.register(TestbedOutput)
+Step.register(TestbedInput)
 
 class Testbed extends Batch {
     static pipes(stepid: string): PipeObj[] {

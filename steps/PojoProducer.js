@@ -39,5 +39,5 @@ class PojoProducer extends pojoe_1.Step {
 }
 PojoProducer.declaration = declaration;
 exports.PojoProducer = PojoProducer;
-pojoe_1.Step.register(declaration, PojoProducer);
+pojoe_1.Step.register(PojoProducer);
 //# sourceMappingURL=PojoProducer.js.map

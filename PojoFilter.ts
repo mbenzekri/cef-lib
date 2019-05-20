@@ -38,5 +38,5 @@ export class PojoFilter extends Step {
     }
 }
 
-Step.register(declaration, PojoFilter);
+Step.register(PojoFilter);
 

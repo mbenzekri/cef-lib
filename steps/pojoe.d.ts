@@ -181,7 +181,7 @@ declare class InputPort extends Port {
  * @property params : parameters (dynamic see Proxy in constructor)
  */
 declare abstract class Step {
-    static register(declaration: Declaration, aclass: TypeStep): void;
+    static register(aclass: TypeStep): void;
     static getstep(stepid: string): TypeStep;
     readonly id: any;
     readonly decl: Declaration;
