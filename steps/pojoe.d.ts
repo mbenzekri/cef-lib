@@ -1,4 +1,4 @@
-import { Declaration, Flowchart, Testcase, ParamsMap, PipeObj, StepObj } from './types';
+import { Declaration, Flowchart, Testcase, ParamsMap, TypedParamsMap, PipeObj, StepObj } from './types';
 declare const SOP = "SOP";
 declare const EOP = "EOP";
 declare type TypeStep = {
@@ -158,6 +158,7 @@ declare abstract class Step {
     exec(): Promise<void>;
 }
 declare class Testbed extends Batch {
+    static globs(globs1: TypedParamsMap, globs2: TypedParamsMap): TypedParamsMap;
     static pipes(stepid: string): PipeObj[];
     static steps(stepid: string, params: ParamsMap): StepObj[];
     constructor(testcase: Testcase);

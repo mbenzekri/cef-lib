@@ -1,7 +1,54 @@
 import * as uuid from 'uuid/v4'
 import * as os from 'os';
 import * as fs from 'fs';
-import { Declaration, Flowchart, Testcase, TestData, ParamsMap,State, PipeObj, StepObj, OutPortsMap, InPortsMap, error, debug, argfunc, globfunc, paramfunc,  quote, gettype } from './types'
+import * as path from 'path';
+import { Declaration, Flowchart, Testcase, TestData, ParamsMap, TypedParamsMap, State, PipeObj, StepObj, OutPortsMap, InPortsMap, gettype, equals } from './types'
+
+function error(obj: any, message: string): boolean {
+    const e = new Error()
+    const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':')
+    const line = (frame.length > 1) ? frame[frame.length - 2] : '-'
+    const script = path.basename(__filename)
+    throw new Error(`${script}@${line}: ${obj.toString()} => ${message}`)
+}
+
+function debug(obj: any, message: string): boolean {
+    const e = new Error()
+    const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':')
+    const line = (frame.length > 1) ? frame[frame.length - 2] : '-'
+    const script = path.basename(__filename)
+    console.log(`${script}@${line}: ${obj.toString()} => ${message}`)
+    return true
+}
+
+function bodyfunc(type: string, strvalue: string): string {
+    const cleanstr = strvalue.replace(/\`/, '${"`"}')
+    let body = `
+        let raw = '';
+        try {
+            raw = String.raw\`${cleanstr}\`
+            return type.fromString(raw)
+        } catch(e) { 
+            throw(new Error(\`evaluation of "${strvalue}" of type "${type}" fails due to => \\n    $\{e.message}\`)) 
+        }
+    `;
+    return body;
+}
+
+function argfunc(type: string, strvalue: string): Function {
+    const body = bodyfunc(type, strvalue)
+    return new Function('type', body);
+}
+
+function globfunc(type: string, strvalue: string): Function {
+    const body = bodyfunc(type, strvalue)
+    return new Function('args', 'globs', 'type', body);
+}
+
+function paramfunc(type: string, strvalue: string): Function {
+    const body = bodyfunc(type, strvalue)
+    return new Function('args', 'globs', 'params', 'pojo', 'type', body);
+}
 
 let DEBUG = false;
 
@@ -48,7 +95,7 @@ class Batch {
         })
         // then env variables
         Object.keys(this._flowchart.args).forEach(name => {
-            if (name in process.env) {
+            if (process.env[name]) {
                 const type = this._flowchart.args[name].type
                 const value = process.env[name]
                 argv[name] = argfunc(type, value);
@@ -62,18 +109,21 @@ class Batch {
                 if (this._flowchart.args[name]) {
                     const type = this._flowchart.args[name].type
                     if (name in this._flowchart.args) {
-                        this._args[name] = argfunc(type, value);
+                        argv[name] = argfunc(type, value);
                     }
                 }
             }
         })
+        argv['POJOE_TEMP_DIR'] = process.env['POJOE_TEMP_DIR'] || os.tmpdir()
         this._args = new Proxy(argv, {
             get: (target, property) => {
                 try {
-                    let type = gettype(this._flowchart.args[property.toString()].type)
-                    return target[property](quote,type);
+                    let argdef= this._flowchart.args[property.toString()]
+                    argdef || this.error(`unknown argument variable "${property.toString()}" used`)
+                    let type = gettype(argdef.type)
+                    return target[property](type);
                 } catch (e) {
-                    error(this, `error "${e.message}" when evaluating arg parameter "${String(property)}"`);
+                    this.error(`error "${e.message}" when evaluating arg parameter "${String(property)}"`);
                 }
             },
         });
@@ -91,11 +141,13 @@ class Batch {
 
         this._globs = new Proxy(globs, {
             get: (target, property) => {
+                let globdef= this._flowchart.globs[property.toString()]
+                globdef || this.error(`unknown global variable "${property.toString()}" used`)
+                let type = gettype(globdef.type)
                 try {
-                    let type = gettype(this._flowchart.globs[property.toString()].type)
-                    return target[property](this._args, this.globs,quote,type);
+                    return target[property](this._args, this.globs,type);
                 } catch (e) {
-                    error(this, `error "${e.message}" when evaluating global parameter "${String(property)}"`);
+                    this.error(`error "${e.message}" when evaluating global parameter "${String(property)}" due to =>\n    ${e.message}`);
                 }
             },
         });
@@ -155,7 +207,7 @@ class Batch {
         try {
             stepscb && stepscb(steps)
         } catch(e) {
-            this.error(`onstart callback error due to due to ${e.message}`)
+            this.error(`onstart callback error due to => \n    ${e.message}`)
         }
         DEBUG && debug(this, `executing all the batch's steps `)
         let promises: Promise<any>[] = []
@@ -187,7 +239,7 @@ class Pipe {
         try {
             this._fd = fs.openSync(this.tmpfile, 'a+')
         } catch (e) {
-            error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to ${e.message}`)
+            error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to => \n    ${e.message}`)
         }
     }
     closed(reader?: InputPort) {
@@ -217,12 +269,12 @@ class Pipe {
         return new Promise((resolve, reject) => {
             if (r.read < this._written) {
                 fs.read(this._fd, b, 0, b.byteLength, r.filepos, (err, bytes) => {
-                    err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to ${err.message}`)
+                    err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to => \n    ${err.message}`)
                     r.filepos += bytes;
                     const jsonlen = parseInt(b.toString('utf8'), 10)
                     buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf
                     fs.read(this._fd, buf, 0, jsonlen, r.filepos, (err, bytes) => {
-                        err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to ${err.message}`)
+                        err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to => \n    ${err.message}`)
                         r.read++
                         r.filepos += bytes;
                         const obj = JSON.parse(buf.toString('utf8', 0, jsonlen))
@@ -249,7 +301,7 @@ class Pipe {
             const str = len + json + '\n'
             // we must write len+json in same call to avoid separate write du to concurrency
             fs.write(this._fd, str, this._filepos, (err, bytes) => {
-                err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to ${err.message}`)
+                err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to  => \n    ${err.message}`)
                 this._filepos += bytes
                 this._written++
                 // release waiting readers
@@ -415,10 +467,12 @@ abstract class Step {
         this._params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
-                    let type = gettype(this.decl.parameters[property.toString()].type)
-                    return target[property](args, globs, this._params, this.pojo,quote,type);
+                    let paramdef = this.decl.parameters[property.toString()]
+                    paramdef || this.error(`unknown parameter "${property.toString()}" used`)
+                    let type = gettype(paramdef.type)
+                    return target[property](args, globs, this._params, this.pojo,type);
                 } catch (e) {
-                    error(this, `error when evaluating step parameter "${String(property)}" due to "${e.message}" `);
+                    error(this, `error when evaluating step parameter "${String(property)}" due to  => \n    "${e.message}" `);
                 }
             },
         });
@@ -551,18 +605,14 @@ class TestbedInput extends Step {
         // checks equality with expected pojos 
         const dataval = this.params.dataforvalidation
         for (let input in dataval) {
-            const ouputed = result[input] || []
+            const outputed = result[input] || []
             const expected = dataval[input] || []
-            // test if resdata in expected (same order)
-            const equals1 = ouputed.every((pojo, i) => JSON.stringify(pojo) === JSON.stringify(expected[i]))
-            // test if expected in resdata (same order)
-            const equals2 = expected.every((pojo, i) => JSON.stringify(pojo) === JSON.stringify(ouputed[i]))
-            if (!equals1 || !equals2) this.error(`test failed due to outputed data !== expected data on port "${input}"` +
-                `\n --- EXPECTED: \n${JSON.stringify(expected,undefined, 4)} \n --- OUTPUTED: \n${JSON.stringify(ouputed,undefined, 4)} \n`)
+            const isequal = equals(expected,outputed)
+            if (!isequal) this.error(`test failed due to outputed data !== expected data on port "${input}"` +
+                `\n --- EXPECTED: \n${JSON.stringify(expected,undefined, 4)} \n --- OUTPUTED: \n${JSON.stringify(outputed,undefined, 4)} \n`)
         }
     }
 }
-
 /**
  * WARNING !!! du to singleton TESTCASE
  * It's ACTUALY IMPOSSIBLE TO RUN MULTIPLE TESTCASE in parallele
@@ -571,8 +621,16 @@ Step.register(TestbedOutput)
 Step.register(TestbedInput)
 
 class Testbed extends Batch {
+    static globs(globs1: TypedParamsMap, globs2: TypedParamsMap): TypedParamsMap {
+        if (globs2) {
+            Object.keys(globs2).forEach(name => {
+                globs1[name] = globs2[name]
+            })
+        } 
+        return globs1
+    }
     static pipes(stepid: string): PipeObj[] {
-        const stepmod = REGISTRY[stepid]
+            const stepmod = REGISTRY[stepid]
         stepmod || error('Testbed', `${stepid} not registered`);
         const outpipes = Object.keys(stepmod.declaration.inputs).map(
             inport => <PipeObj>{ from: 'testbedoutput', outport: inport, to: 'testtostep', inport: inport }
@@ -604,16 +662,19 @@ class Testbed extends Batch {
             id: uuid(),
             title: `Testbed for step : ${testcase.stepid}`,
             desc: `Testbed for step : ${testcase.stepid}`,
-            args: {},
-            globs: {
+            args: testcase.args || {},
+            globs: Testbed.globs({
                 "dataforvalidation": { type: 'json', value: JSON.stringify(testcase.expected), desc: '' },
                 "dataforinjection": { type: 'json', value: JSON.stringify(testcase.injected), desc: '' },
-            },
+            }, testcase.globs),
             steps: Testbed.steps(testcase.stepid, testcase.params),
             pipes: Testbed.pipes(testcase.stepid)
         })
     }
     static async run(tests: Testcase[]) {
+        const fgred = "\x1b[31m"
+        const fggreen = "\x1b[32m"
+        const reset= "\x1b[0m"
         for (let i = 0; i < tests.length; i++) {
             try {
                 const testcase = tests[i]
@@ -624,9 +685,10 @@ class Testbed extends Batch {
                     tested && testcase.onstart && testcase.onstart(tested)
                 })
                 tested && testcase.onend && testcase.onend(tested)
-                console.log(`SUCCESS: test ${tests[i].title}`);
+
+                console.log(`${fggreen}SUCCESS: test ${tests[i].title}${reset}`);
             } catch (e) {
-                console.error(`FAILURE: test ${tests[i].title} due to: ${e.message}`);
+                console.error(`${fgred}FAILURE: test ${tests[i].title} due to => \n    ${e.message}${reset}`);
             }
         }
     }

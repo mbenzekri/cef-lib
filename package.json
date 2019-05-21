@@ -9,7 +9,7 @@
     "scripts": {
         "build": "tsc",
         "pretest": "npm run doc",
-        "test": "node ./steps/test.js",
+        "test": "node ./steps/test.js --STR=Hello  --INT=123 --BOOL=true --NUM=3.14159265 ",
         "predoc": "tsc",
         "doc": "node ./steps/docgen.js"
     },

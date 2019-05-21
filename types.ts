@@ -1,10 +1,11 @@
 import * as path from 'path';
 import * as url from 'url'
+import * as fs from 'fs';
 
 /**
  *  on memory step registry (Step Map)
  */
-type Declaration = {
+export type Declaration = {
     gitid: string;
     title: string;
     desc: string;
@@ -17,32 +18,32 @@ type Declaration = {
 
 enum PortType { input, output, }
 
-enum State { idle, started, ended, error }
+export enum State { idle, started, ended, error }
 
 //enum BaseType { int, ints, number, numbers, boolean, date, dates, regexp, string, strings }
 //type BaseType = ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings')
 
 type ParamsMapDef = { [key: string]: { title: string, desc?: string; type: string, default: string, examples?: { value: string, title: string, desc?: string }[] } };
-type InPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
-type OutPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
+export type InPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
+export type OutPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
 type PropertiesMap = { [key: string]: { title: string, desc?: string, type: string } }
-type ParamsMap = { [key: string]: string }
-type TypedParamsMap = { [key: string]: { value: string, type: string, desc: string } }
+export type ParamsMap = { [key: string]: string }
+export type TypedParamsMap = { [key: string]: { value: string, type: string, desc: string } }
 
-interface StepObj {
+export interface StepObj {
     id: string;
     gitid: string;
     params: ParamsMap;
 }
 
-interface PipeObj {
+export interface PipeObj {
     from: string;
     outport: string;
     to: string;
     inport: string;
 }
 
-type Flowchart = {
+export type Flowchart = {
     id: string;
     title: string;
     desc: string;
@@ -52,10 +53,12 @@ type Flowchart = {
     pipes: PipeObj[];
 }
 
-type TestData = { [key: string]: any[] }
-type Testcase = {
+export type TestData = { [key: string]: any[] }
+export type Testcase = {
     stepid: string;
     title: string;
+    args?: TypedParamsMap;
+    globs?: TypedParamsMap;
     params: ParamsMap;
     injected: TestData;
     expected: TestData;
@@ -63,124 +66,127 @@ type Testcase = {
     onend?: (teststep: any) => void
 }
 
-
-function error(obj: any, message: string): boolean {
-    const e = new Error()
-    const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':')
-    const line = (frame.length > 1) ? frame[frame.length - 2] : '-'
-    const script = path.basename(__filename)
-    throw new Error(`${script}@${line}: ${obj.toString()} => ${message}`)
-}
-
-function debug(obj: any, message: string): boolean {
-    const e = new Error()
-    const frame = e.stack.split('\n')[2].replace(/^[^\(]*\(/, '').replace(/\)[^\)]*/, '').split(':')
-    const line = (frame.length > 1) ? frame[frame.length - 2] : '-'
-    const script = path.basename(__filename)
-    console.log(`${script}@${line}: ${obj.toString()} => ${message}`)
-    return true
-}
-
-function quote(str: string) {
-    let quoted = str.replace(/\\{2}/g, '²')
-    quoted = quoted.replace(/\\{1}([^fnrt"])/g, '\\\\$1')
-    quoted = quoted.replace(/²/g, '\\\\')
-    return quoted
-}
-
 type ParamType<T> = {
     typename: string;
     fromString: (str: string) => T;
     toString: (val: T) => string;
 }
-const intType: ParamType<number> = {
+export const intType: ParamType<number> = {
     typename: 'int',
     fromString: (str: string): number => parseInt(str, 10),
     toString: (val: number): string => (val).toString(),
 }
-const intArrayType: ParamType<number[]> = {
+export const intArrayType: ParamType<number[]> = {
     typename: 'int[]',
     fromString: (str: string): number[] => str.split(/,/).map(v => parseInt(v, 10)),
     toString: (val: number[]): string => val.map(v => (v).toString()).join(','),
 }
-const numberType: ParamType<number> = {
+export const numberType: ParamType<number> = {
     typename: 'number',
     fromString: (str: string): number => parseFloat(str),
     toString: (val: number): string => (val).toString(),
 }
-const numberArrayType: ParamType<number[]> = {
+export const numberArrayType: ParamType<number[]> = {
     typename: 'number[]',
     fromString: (str: string): number[] => str.split(/,/).map(v => parseFloat(v)),
     toString: (val: number[]): string => val.map(v => (v).toString()).join(','),
 }
-const booleanType: ParamType<boolean> = {
+export const booleanType: ParamType<boolean> = {
     typename: 'boolean',
     fromString: (str: string): boolean => (str === 'true') ? true : false,
     toString: (val: boolean): string => (val).toString(),
 }
-const booleanArrayType: ParamType<boolean[]> = {
+export const booleanArrayType: ParamType<boolean[]> = {
     typename: 'boolean[]',
     fromString: (str: string): boolean[] => str.split(/,/).map(v => (v === 'true') ? true : false),
     toString: (val: boolean[]): string => val.map(v => v ? 'true' : 'false').join(','),
 }
-const dateType: ParamType<Date> = {
+export const dateType: ParamType<Date> = {
     typename: 'date',
     fromString: (str: string): Date => new Date(str),
     toString: (val: Date): string => val.toISOString(),
 }
-const dateArrayType: ParamType<Date[]> = {
+export const dateArrayType: ParamType<Date[]> = {
     typename: 'date[]',
     fromString: (str: string): Date[] => str.split(/,/).map(v => dateType.fromString(v)),
     toString: (val: Date[]): string => val.map(v => dateType.toString(v)).join(','),
 }
 
-const jsonType: ParamType<object> = {
+export const jsonType: ParamType<object> = {
     typename: 'json',
     fromString: (str: string): object => JSON.parse(str),
     toString: (val: object): string => JSON.stringify(val),
 }
-const jsonArrayType: ParamType<object[]> = {
+export const jsonArrayType: ParamType<object[]> = {
     typename: 'json[]',
     fromString: (str: string): object[] => str.split(/,/).map(v => jsonType.fromString(v)),
     toString: (val: Date[]): string => val.map(v => jsonType.toString(v)).join(','),
 }
 
-const regexpType: ParamType<RegExp> = {
+export const regexpType: ParamType<RegExp> = {
     typename: 'regexp',
-    fromString: (str: string): RegExp => JSON.parse(str),
-    toString: (val: RegExp): string => JSON.stringify(val),
+    fromString: (str: string): RegExp => {
+        const arr = str.match(/^( *\/)(.*)(\/([gimsuy]*) *)$/);
+        const flags = arr[4] ? arr[4].replace(/g/,'') : 'i'
+        try { return new RegExp(arr[2],flags) } catch(e) {
+            throw new Error(`regexpType : parameter value not a correct RegExp ${str}`)
+        }
+    },
+    toString: (val: RegExp): string => val.toString(),
 }
 
-const stringType: ParamType<string> = {
+export const stringType: ParamType<string> = {
     typename: 'string',
     fromString: (str: string): string => str,
     toString: (val: string): string => val,
 }
 
-const stringArrayType: ParamType<string[]> = {
+export const stringArrayType: ParamType<string[]> = {
     typename: 'string[]',
     fromString: (str: string): string[] => str.split(/,/),
     toString: (val: string[]): string => val.join(','),
 }
-
-const urlType: ParamType<url.UrlWithStringQuery> = {
-    typename: 'url',
-    fromString: (str: string): url.UrlWithStringQuery => url.parse(str),
-    toString: (val: url.UrlWithStringQuery): string => decodeURI(val.href),
+export class Url {
+    private url : url.UrlWithStringQuery
+    constructor(  urlstr: string) {
+        this.url = url.parse(urlstr)
+    }
+    get protocol(){ return this.url.protocol }
+    get slashes(){ return this.url.slashes }
+    get auth(){ return this.url.auth }
+    get host(){ return this.url.host }
+    get port(){ return this.url.port }
+    get hostname(){ return this.url.hostname }
+    get hash(){ return this.url.hash }
+    get search(){ return this.url.search }
+    get query(){ return this.url.query }
+    get pathname(){ return this.url.pathname }
+    get path(){ return this.url.path }
+    get href(){ return this.url.href }
+    toString():string { return decodeURI(this.url.href) }
 }
-class Path extends String {
-    get dirname() { return path.dirname(this.toString()) }
+
+export const urlType: ParamType<Url> = {
+    typename: 'url',
+    fromString: (str: string): Url => new Url(str),
+    toString: (val: Url): string => decodeURI(val.href),
+}
+export class Path extends String {
+    get dirname() { return new Path(path.dirname(this.toString())) }
     get extname() { return path.extname(this.toString()) }
-    get isAbsolute() { return path.isAbsolute(this.toString()) }
     get clean() { return path.normalize(this.toString()) }
     get sep() { return path.sep }
     get delimiter() { return path.delimiter }
     get basename() { return path.basename(this.toString()) }
+    get exists() { return fs.existsSync(this.clean) }
+    get isAbsolute() { return path.isAbsolute(this.toString()) }
+    get isDirectory() { return fs.existsSync(this.clean) && fs.statSync(this.clean).isDirectory }
+    get isFile() { return fs.existsSync(this.clean) && fs.statSync(this.clean).isFile }
 }
-const pathType: ParamType<url.UrlWithStringQuery> = {
+export const pathType: ParamType<Path> = {
     typename: 'path',
-    fromString: (str: string): url.UrlWithStringQuery => url.parse(str),
-    toString: (val: url.UrlWithStringQuery): string => decodeURI(val.href),
+    fromString: (str: string): Path => new Path(str),
+    toString: (val: Path): string => path.toString(),
 }
 
 const PARAMTYPES = {
@@ -188,8 +194,8 @@ const PARAMTYPES = {
     'string[]': stringArrayType,
     'int': intType,
     'int[]': intArrayType,
-    'number': intType,
-    'number[]': intArrayType,
+    'number': numberType,
+    'number[]': numberArrayType,
     'boolean': booleanType,
     'boolean[]': booleanArrayType,
     'date': dateType,
@@ -201,34 +207,40 @@ const PARAMTYPES = {
     'path': pathType,
 }
 
-function bodyfunc(type: string, strvalue: string): string {
-    const cleanstr = strvalue.replace(/\`/, '${"`"}')
-    let body = `
-        try {
-            const raw = String.raw\`${cleanstr}\`
-            return type.fromString(raw)
-        } catch(e) { 
-            throw(new Error('parsing type "'+ type.name +'" fails for parameter value '+ raw)) 
-        }
-    `;
-    return body;
+export function equals(expected: any,outputed:any): boolean {
+    let result:boolean = true
+    let i = 0
+    if (Array.isArray(expected) && Array.isArray(expected)) {
+        if (expected.length !== outputed.length) return false
+        result =  expected.every((v, i) => equals(v,outputed[i]))
+        i++
+    } else if (expected instanceof Url && outputed instanceof Url ) {
+        result =  expected.toString() === outputed.toString()
+        i++
+    } else if (expected instanceof Path && outputed instanceof Path ) {
+        result =  expected.toString() === outputed.toString()
+        i++
+    } else if (expected instanceof Date && outputed instanceof Date ) {
+        result =  expected.toString()  === outputed.toString() 
+        i++
+    } else if (expected instanceof RegExp && outputed instanceof RegExp ) {
+        result =  expected.toString()  === outputed.toString() 
+        i++
+    } else if (expected instanceof Object && outputed instanceof Object ) {
+        i++
+        if (Object.keys(expected).length !== Object.keys(outputed).length) return false
+        result =  Object.keys(expected).every(property =>
+            equals(expected[property],outputed[property])
+        )
+        i++
+    } else {
+        i++
+        result = outputed === expected
+        i++
+    }
+    return result
 }
 
-function argfunc(type: string, strvalue: string): Function {
-    return new Function('quote', 'type', bodyfunc(type, strvalue));
-}
-
-function globfunc(type: string, strvalue: string): Function {
-    const body = bodyfunc(type, strvalue)
-    return new Function('args', 'globs', 'quote', 'type', body);
-}
-
-function paramfunc(type: string, strvalue: string): Function {
-    return new Function('args', 'globs', 'params', 'pojo', 'quote', 'type', bodyfunc(type, strvalue));
-}
-
-function gettype(typename: string) {
+export function gettype(typename: string) {
     return PARAMTYPES[typename]
 }
-
-export { Declaration, Flowchart, Testcase, TestData, ParamsMap, State, PipeObj, StepObj, OutPortsMap, InPortsMap, error, debug, argfunc, globfunc, paramfunc, quote, gettype }
