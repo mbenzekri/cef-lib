@@ -15,15 +15,15 @@ const declaration = {
     desc: 'this step emit one pojo provided in a parameter object literal expression',
     inputs: {},
     outputs: {
-        'pojo': {
-            title: 'the pojo'
+        'pojos': {
+            title: 'the pojos outputed'
         }
     },
     parameters: {
-        'pojo': {
-            title: 'the pojo literal',
+        'pojos': {
+            title: 'a json object or array literal',
             type: 'json',
-            default: '${JSON.stringify(params.pojo)}',
+            default: '[ { "num" : 1 },{ "num" : 2 },{ "num" : 3 } ]',
         },
     }
 };
@@ -33,7 +33,15 @@ class PojoProducer extends pojoe_1.Step {
     }
     doit() {
         return __awaiter(this, void 0, void 0, function* () {
-            this.output("pojo", this.params.pojo);
+            const pojos = this.params.pojos;
+            if (Array.isArray(pojos)) {
+                for (let pojo of pojos) {
+                    yield this.output("pojos", pojo);
+                }
+            }
+            else {
+                yield this.output("pojos", pojos);
+            }
         });
     }
 }

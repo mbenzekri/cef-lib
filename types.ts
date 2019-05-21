@@ -209,34 +209,24 @@ const PARAMTYPES = {
 
 export function equals(expected: any,outputed:any): boolean {
     let result:boolean = true
-    let i = 0
     if (Array.isArray(expected) && Array.isArray(expected)) {
         if (expected.length !== outputed.length) return false
         result =  expected.every((v, i) => equals(v,outputed[i]))
-        i++
     } else if (expected instanceof Url && outputed instanceof Url ) {
         result =  expected.toString() === outputed.toString()
-        i++
     } else if (expected instanceof Path && outputed instanceof Path ) {
         result =  expected.toString() === outputed.toString()
-        i++
     } else if (expected instanceof Date && outputed instanceof Date ) {
         result =  expected.toString()  === outputed.toString() 
-        i++
     } else if (expected instanceof RegExp && outputed instanceof RegExp ) {
         result =  expected.toString()  === outputed.toString() 
-        i++
     } else if (expected instanceof Object && outputed instanceof Object ) {
-        i++
         if (Object.keys(expected).length !== Object.keys(outputed).length) return false
         result =  Object.keys(expected).every(property =>
             equals(expected[property],outputed[property])
         )
-        i++
     } else {
-        i++
         result = outputed === expected
-        i++
     }
     return result
 }

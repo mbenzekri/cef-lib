@@ -19,11 +19,11 @@
 
 ---
 ## parameters
-> **pojo** *{json}* -- the pojo literal  -- default = `${JSON.stringify(params.pojo)}`
+> **pojos** *{json}* -- a json object or array literal  -- default = `[ { "num" : 1 },{ "num" : 2 },{ "num" : 3 } ]`
 > 
 
 ## outputs
->- **pojo** -- the pojo 
+>- **pojos** -- the pojos outputed 
 
 
 ---
