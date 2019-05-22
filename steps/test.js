@@ -2,17 +2,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const index_1 = require("./index");
 const tests = [
-    /*
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
         title: 'PojoProcucer empty object',
         params: { 'pojos': "{}" },
         injected: {},
         expected: { 'pojos': [{}] },
-    },*/
+    },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
-        title: 'PojoProcucer empty array',
+        title: 'PojoProcucer no inputs',
         params: { 'pojos': "[]" },
         injected: {},
         expected: { 'pojos': [] },

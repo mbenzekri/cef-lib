@@ -345,9 +345,9 @@ class OutputPort extends Port {
             this.setState(pojo);
             if (pojo === SOP)
                 return yield this.fifo.open();
+            yield this.fifo.push(pojo);
             if (pojo === EOP)
                 return yield this.fifo.close();
-            yield this.fifo.push(pojo);
         });
     }
 }

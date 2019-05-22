@@ -348,8 +348,8 @@ class OutputPort extends Port {
     async put(pojo: any) {
         this.setState(pojo)
         if (pojo === SOP) return await this.fifo.open()
-        if (pojo === EOP) return await this.fifo.close()
         await this.fifo.push(pojo)
+        if (pojo === EOP) return await this.fifo.close()
     }
 }
 

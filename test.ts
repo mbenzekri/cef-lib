@@ -2,17 +2,16 @@ import { Testbed, Testcase } from './index'
 import { Url, Path  } from './types'
 
 const tests: Testcase[] = [
-    /*
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
         title: 'PojoProcucer empty object',
         params: { 'pojos': "{}" },
         injected: {},
         expected: { 'pojos': [{}] },
-    },*/
+    },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
-        title: 'PojoProcucer empty array',
+        title: 'PojoProcucer no inputs',
         params: { 'pojos': "[]" },
         injected: {},
         expected: { 'pojos': [] },
