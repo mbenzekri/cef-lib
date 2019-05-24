@@ -193,7 +193,7 @@ class Batch {
         })
     }
 
-    async run(stepscb: (steps: Step[]) => void) {
+    async run(stepscb?: (steps: Step[]) => void) {
         DEBUG && debug(this, `Starting batch => ${this._flowchart.title} @pid: ${process.pid}`)
         DEBUG && debug(this, `initialising arguments`)
         this.initargs()

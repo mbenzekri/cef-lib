@@ -31,7 +31,7 @@ declare class Batch {
      * @param {Step} step: a step to add to this batch
      */
     private initsteps;
-    run(stepscb: (steps: Step[]) => void): Promise<void>;
+    run(stepscb?: (steps: Step[]) => void): Promise<void>;
 }
 declare class Pipe {
     readonly tmpfile: string;
