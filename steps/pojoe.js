@@ -715,11 +715,11 @@ class Testbed extends Batch {
             const fgred = "\x1b[31m";
             const fggreen = "\x1b[32m";
             const reset = "\x1b[0m";
-            DEBUG = debug;
             for (let i = 0; i < tests.length; i++) {
                 try {
                     const testcase = tests[i];
                     const test = new Testbed(testcase);
+                    DEBUG = debug;
                     let tested;
                     yield test.run((steps) => {
                         tested = steps.find(step => step.decl.gitid === testcase.stepid);
@@ -727,13 +727,12 @@ class Testbed extends Batch {
                     });
                     tested && testcase.onend && testcase.onend(tested);
                     console.log(`${fggreen}SUCCESS: test ${tests[i].title}${reset}`);
-                    DEBUG = false;
                 }
                 catch (e) {
                     console.error(`${fgred}FAILURE: test ${tests[i].title} due to => \n    ${e.message}${reset}`);
-                    DEBUG = false;
                 }
             }
+            DEBUG = false;
         });
     }
 }
