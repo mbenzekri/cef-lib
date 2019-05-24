@@ -35,13 +35,11 @@ class PojoFilter extends pojoe_1.Step {
     constructor(params) {
         super(declaration, params);
     }
-    doit() {
+    input(inport, pojo) {
         return __awaiter(this, void 0, void 0, function* () {
-            let pojo = yield this.input('pojos');
-            while (pojo !== pojoe_1.EOP) {
+            if (inport === 'pojos') {
                 if (this.params.test)
                     yield this.output('filtered', pojo);
-                pojo = yield this.input('pojos');
             }
         });
     }

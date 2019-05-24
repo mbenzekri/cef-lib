@@ -79,7 +79,7 @@ class Batch {
     get steps() { return this._steps; }
     get globs() { return this._globs; }
     get args() { return this._args; }
-    toString() { return `${this._flowchart.id}[Batch: ${this._flowchart.title}]`; }
+    toString() { return `[Batch: ${this._flowchart.title}]`; }
     error(message) { error(this, message); }
     initargs() {
         const argv = {};
@@ -189,7 +189,7 @@ class Batch {
     }
     run(stepscb) {
         return __awaiter(this, void 0, void 0, function* () {
-            DEBUG && debug(this, `Starting batch (pid: ${process.pid})`);
+            DEBUG && debug(this, `Starting batch => ${this._flowchart.title} @pid: ${process.pid}`);
             DEBUG && debug(this, `initialising arguments`);
             this.initargs();
             DEBUG && debug(this, `initialising globals`);
@@ -225,7 +225,7 @@ class Pipe {
         this._readers = new Map();
         this._waits = [];
     }
-    readfrom(reader) {
+    setreader(reader) {
         this._readers.set(reader, { filepos: 0, read: 0, done: false });
     }
     open() {
@@ -254,38 +254,40 @@ class Pipe {
         }
     }
     pop(reader) {
-        if (!this._readers.has(reader))
-            return;
-        const r = this._readers.get(reader);
-        const b = Buffer.alloc(10);
-        let buf = Buffer.alloc(10000);
-        return new Promise((resolve, reject) => {
-            if (r.read < this._written) {
-                fs.read(this._fd, b, 0, b.byteLength, r.filepos, (err, bytes) => {
-                    err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to => \n    ${err.message}`);
-                    r.filepos += bytes;
-                    const jsonlen = parseInt(b.toString('utf8'), 10);
-                    buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
-                    fs.read(this._fd, buf, 0, jsonlen, r.filepos, (err, bytes) => {
-                        err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to => \n    ${err.message}`);
-                        r.read++;
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this._readers.has(reader))
+                return;
+            const r = this._readers.get(reader);
+            const b = Buffer.alloc(10);
+            let buf = Buffer.alloc(10000);
+            return new Promise((resolve, reject) => {
+                if (r.read < this._written) {
+                    fs.read(this._fd, b, 0, b.byteLength, r.filepos, (err, bytes) => {
+                        err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to => \n    ${err.message}`);
                         r.filepos += bytes;
-                        const obj = JSON.parse(buf.toString('utf8', 0, jsonlen));
-                        resolve(obj);
+                        const jsonlen = parseInt(b.toString('utf8'), 10);
+                        buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
+                        fs.read(this._fd, buf, 0, jsonlen, r.filepos, (err, bytes) => {
+                            err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to => \n    ${err.message}`);
+                            r.read++;
+                            r.filepos += bytes;
+                            const obj = JSON.parse(buf.toString('utf8', 0, jsonlen));
+                            resolve(obj);
+                        });
                     });
-                });
-            }
-            else {
-                if (this._done) {
-                    // emitter closed
-                    this.close(reader);
-                    // all receivers closed
-                    if (Array.from(this._readers.values()).every(v => v.done))
-                        return resolve(EOP);
                 }
-                // wait for a new object to be outputed
-                this._waits.push({ resolve: () => resolve(this.pop(reader)), reject });
-            }
+                else {
+                    if (this._done) {
+                        // emitter closed
+                        this.close(reader);
+                        // all receivers closed
+                        if (Array.from(this._readers.values()).every(v => v.done))
+                            return resolve(EOP);
+                    }
+                    // wait for a new object to be outputed
+                    this._waits.push({ resolve: () => resolve(this.pop(reader)), reject });
+                }
+            });
         });
     }
     push(item) {
@@ -315,7 +317,7 @@ class Pipe {
  * port state is ended after receiving EOF (end of flow pojo)
  */
 class Port {
-    constructor(name, step, capacity = 1) {
+    constructor(name, step) {
         this.state = types_1.State.idle;
         this.name = name;
         this.step = step;
@@ -344,23 +346,31 @@ class OutputPort extends Port {
         return __awaiter(this, void 0, void 0, function* () {
             this.setState(pojo);
             if (pojo === SOP)
-                return yield this.fifo.open();
+                return this.fifo.open();
             yield this.fifo.push(pojo);
             if (pojo === EOP)
-                return yield this.fifo.close();
+                return this.fifo.close();
         });
     }
 }
 class InputPort extends Port {
-    constructor() {
-        super(...arguments);
+    constructor(name, step) {
+        super(name, step);
         this.fifos = [];
+        this._eopcnt = 0;
+        this.state = types_1.State.started;
     }
     get isinput() { return true; }
     ;
     from(fifo) {
-        fifo.readfrom(this);
+        fifo.setreader(this);
         this.fifos.push(fifo);
+    }
+    setState(pojo) {
+        if (pojo === SOP && this.isidle)
+            this.state = types_1.State.started;
+        if (pojo === EOP && this.isstarted && ++this._eopcnt >= this.fifos.length)
+            this.state = types_1.State.ended;
     }
     get() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -368,9 +378,9 @@ class InputPort extends Port {
             for (let i = 0; i < this.fifos.length; i++) {
                 if (!this.fifos[i].closed(this)) {
                     pojo = yield this.fifos[i].pop(this);
-                    if (pojo === EOP)
-                        continue;
-                    break;
+                    this.setState(pojo);
+                    if (pojo !== EOP)
+                        return pojo;
                 }
             }
             this.setState(pojo);
@@ -399,10 +409,9 @@ class Step {
      */
     constructor(decl, params) {
         this.id = uuid();
-        //private ports: { [key: string]: Port } = {}
         this._inports = {};
         this._outports = {};
-        this.state = types_1.State.idle;
+        this._state = types_1.State.idle;
         this._params = {};
         this.decl = decl;
         Object.keys(decl.inputs).forEach(name => this._inports[name] = new InputPort(name, this));
@@ -415,30 +424,59 @@ class Step {
     static getstep(stepid) {
         return REGISTRY[stepid];
     }
-    // abstract start() method must be implemented by heriting classes 
-    // start() is called for a step at batch ignition time when step have no input port
-    // start() is called when step receive first pojo (SOF) from one of its input port
+    /**
+     * start() method may be implemented by heriting classes
+     * start() is called for a step at batch ignition
+     */
     start() {
-        return __awaiter(this, void 0, void 0, function* () { });
+        return __awaiter(this, void 0, void 0, function* () {
+            // default method do nothing
+        });
     }
-    // abstract end() method must be implemented by heriting classes 
-    // end() is called when step receive last pojo (EOF) from all of its input port
+    /**
+     * end() method may be implemented by heriting classes
+     * end() is called when step finished process()
+     */
     end() {
-        return __awaiter(this, void 0, void 0, function* () { });
+        return __awaiter(this, void 0, void 0, function* () {
+            // default method do nothing
+        });
     }
+    /**
+     * abstract input() method must be implemented by heriting classes
+     * input() is called for each received pojo
+     * @param inport input port name receiving the pojo
+     * @param pojo the received pojo
+     */
+    input(inport, pojo) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // default method do nothing with pojos received
+        });
+    }
+    //  
+    // process() is called after all data inputs completed
+    /**
+     * abstract process() method must be implemented by heriting classes
+     */
+    process() {
+        return __awaiter(this, void 0, void 0, function* () {
+            // default method do nothing
+        });
+    }
+    get pojo() { return this.pojo; }
     get type() { return this.decl.gitid; }
     get paramlist() { return Object.keys(this.decl.parameters); }
     get params() { return this._params; }
-    get isidle() { return this.state === types_1.State.idle; }
-    get isstarted() { return this.state === types_1.State.started; }
-    get isended() { return this.state === types_1.State.ended; }
+    get isidle() { return this._state === types_1.State.idle; }
+    get isstarted() { return this._state === types_1.State.started; }
+    get isended() { return this._state === types_1.State.ended; }
     get inports() { return Object['values'](this._inports); }
     get outports() { return Object['values'](this._outports); }
     get isinitial() { return this.inports.length === 0; }
     get isfinal() { return this.outports.length === 0; }
     outport(name) { return this._outports[name]; }
     inport(name) { return this._inports[name]; }
-    toString() { return `${this.id}[Step: ${this.decl.gitid}]`; }
+    toString() { return `[Step: ${this.decl.gitid}]`; }
     isinport(portname) { return this._inports[portname] ? true : false; }
     isoutport(portname) { return this._outports[portname] ? true : false; }
     port(name) { return this._inports[name] || this._outports[name]; }
@@ -462,24 +500,13 @@ class Step {
                     let paramdef = this.decl.parameters[property.toString()];
                     paramdef || this.error(`unknown parameter "${property.toString()}" used`);
                     let type = types_1.gettype(paramdef.type);
-                    return target[property](args, globs, this._params, this.pojo, type);
+                    return target[property](args, globs, this._params, this._pojo, type);
                 }
                 catch (e) {
                     error(this, `error when evaluating step parameter "${String(property)}" due to  => \n    "${e.message}" `);
                 }
             },
         });
-    }
-    /**
-     * method to connect this step with a data pipe
-     * @param outport name of the output port in this step
-     * @param inport name of the input port in the target step
-     * @param target target step of the pipe (where data flow)
-     * @param filter filter function for flowing data
-     */
-    connect(outport, inport, filter = f => true) {
-        this.outports.indexOf(outport) >= 0 || error(this, `output port "${outport.name}" doesnt exists in this step trying to connect`);
-        inport.from(outport.fifo);
     }
     init() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -498,6 +525,44 @@ class Step {
         });
     }
     /**
+     * dry up a port to receive all inputed data through a given port
+     * @param port port to dry up
+     */
+    dryup(port) {
+        return __awaiter(this, void 0, void 0, function* () {
+            DEBUG && debug(this, `awaiting for input into port "${port.name}" `);
+            let pojo = yield port.get();
+            if (pojo === EOP)
+                return;
+            this._pojo = pojo;
+            DEBUG && debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this._pojo).substr(0, 100)}" `);
+            yield this.input(port.name, pojo);
+            DEBUG && debug(this, `pojo consumed on port "${port.name} pojo ${JSON.stringify(this._pojo).substr(0, 100)}" `);
+            return this.dryup(port);
+        });
+    }
+    /**
+     * dry up all ports to receive all inputed data through all ports
+     * @param port port to dry up
+     */
+    pump() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const dryers = this.inports.map(port => this.dryup(port));
+            return Promise.all(dryers);
+        });
+    }
+    /**
+     * method to connect this step with a data pipe
+     * @param outport name of the output port in this step
+     * @param inport name of the input port in the target step
+     * @param target target step of the pipe (where data flow)
+     * @param filter filter function for flowing data
+     */
+    connect(outport, inport, filter = f => true) {
+        this.outports.indexOf(outport) >= 0 || error(this, `output port "${outport.name}" doesnt exists in this step trying to connect`);
+        inport.from(outport.fifo);
+    }
+    /**
      * method to output a pojo throw the corresponding port
      * @param {string} outport: a port name
      * @param {any} pojo: the pojo to output
@@ -511,28 +576,16 @@ class Step {
             DEBUG && debug(this, `pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `);
         });
     }
-    /**
-     * method to get next input pojo throw the corresponding port
-     * @param {string} inport: a port name
-     */
-    input(inport) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const port = this._inports[inport];
-            !port && error(this, `unknown input port  "${inport}".`);
-            DEBUG && debug(this, `awaiting for input into port "${port.name}" `);
-            this.pojo = yield port.get();
-            DEBUG && debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0, 100)}" `);
-            return this.pojo;
-        });
-    }
     exec() {
         return __awaiter(this, void 0, void 0, function* () {
             DEBUG && debug(this, `init phase `);
             yield this.init();
             DEBUG && debug(this, `start phase `);
             yield this.start();
-            DEBUG && debug(this, `doit phase `);
-            yield this.doit();
+            DEBUG && debug(this, `pump phase `);
+            yield this.pump();
+            DEBUG && debug(this, `process phase `);
+            yield this.process();
             DEBUG && debug(this, `end phase `);
             yield this.end();
             DEBUG && debug(this, `terminate phase `);
@@ -545,7 +598,7 @@ class TestbedOutput extends Step {
     constructor() {
         super(TestbedOutput.declaration, {});
     }
-    doit() {
+    process() {
         return __awaiter(this, void 0, void 0, function* () {
             // output all the provided pojos for the test
             const data = this.params.dataforinjection;
@@ -570,26 +623,33 @@ TestbedOutput.declaration = {
         'dataforinjection': { default: '${ JSON.stringify(globs.dataforinjection)}', type: 'json', title: 'data to inject into the step' }
     },
 };
+const TestbedInput_gitid = 'mbenzekri/pojoe/steps/TestbedInput';
+const TestbedInput_declaration = {
+    gitid: TestbedInput_gitid,
+    title: 'get pojos from the tested step and validate',
+    desc: 'this step receives all the pojos of the tested step and validate them among the expected data',
+    inputs: { /* to be dynamicaly created at test initialisation */},
+    outputs: {},
+    parameters: {
+        'dataforvalidation': { default: '${ JSON.stringify(globs.dataforvalidation)}', type: 'json', title: 'data to inject into the step' }
+    },
+};
 class TestbedInput extends Step {
     constructor() {
-        super(TestbedInput.declaration, {});
+        super(TestbedInput_declaration, {});
+        this.result = this.inports.reduce((prev, port) => { prev[port.name] = []; return prev; }, {});
     }
-    doit() {
+    input(inport, pojo) {
         return __awaiter(this, void 0, void 0, function* () {
-            // get all the outputed result pojos for the test
-            const result = {};
-            for (let input in this.decl.inputs) {
-                result[input] = [];
-                let pojo = yield this.input(input);
-                while (pojo !== EOP) {
-                    result[input].push(pojo);
-                    pojo = yield this.input(input);
-                }
-            }
+            this.result[inport].push(pojo);
+        });
+    }
+    process() {
+        return __awaiter(this, void 0, void 0, function* () {
             // checks equality with expected pojos 
             const dataval = this.params.dataforvalidation;
             for (let input in dataval) {
-                const outputed = result[input] || [];
+                const outputed = this.result[input] || [];
                 const expected = dataval[input] || [];
                 const isequal = types_1.equals(expected, outputed);
                 if (!isequal)
@@ -599,20 +659,8 @@ class TestbedInput extends Step {
         });
     }
 }
-TestbedInput.declaration = {
-    gitid: TestbedInput.gitid,
-    title: 'get pojos from the tested step and validate',
-    desc: 'this step receives all the pojos of the tested step and validate them among the expected data',
-    inputs: { /* to be dynamicaly created at test initialisation */},
-    outputs: {},
-    parameters: {
-        'dataforvalidation': { default: '${ JSON.stringify(globs.dataforvalidation)}', type: 'json', title: 'data to inject into the step' }
-    },
-};
-/**
- * WARNING !!! du to singleton TESTCASE
- * It's ACTUALY IMPOSSIBLE TO RUN MULTIPLE TESTCASE in parallele
- */
+TestbedInput.gitid = TestbedInput_gitid;
+TestbedInput.declaration = TestbedInput_declaration;
 Step.register(TestbedOutput);
 Step.register(TestbedInput);
 class Testbed extends Batch {
@@ -630,7 +678,7 @@ class Testbed extends Batch {
         const outpipes = Object.keys(stepmod.declaration.inputs).map(inport => ({ from: 'testbedoutput', outport: inport, to: 'testtostep', inport: inport }));
         const inpipes = Object.keys(stepmod.declaration.outputs).map(outport => ({ from: 'testtostep', outport: outport, to: 'testbedinput', inport: outport }));
         const outdecl = REGISTRY[TestbedOutput.gitid].declaration;
-        const indecl = REGISTRY[TestbedInput.gitid].declaration;
+        const indecl = REGISTRY[TestbedInput_gitid].declaration;
         outdecl.outputs = Object.keys(stepmod.declaration.inputs).reduce((prev, port) => {
             prev[port] = { title: 'dynamic ouput test port' };
             return prev;
@@ -645,14 +693,14 @@ class Testbed extends Batch {
         return [
             { id: 'testbedoutput', gitid: TestbedOutput.gitid, params: {} },
             { id: 'testtostep', gitid: stepid, params: params },
-            { id: 'testbedinput', gitid: TestbedInput.gitid, params: {} },
+            { id: 'testbedinput', gitid: TestbedInput_gitid, params: {} },
         ];
     }
     constructor(testcase) {
         super({
             id: uuid(),
-            title: `Testbed for step : ${testcase.stepid}`,
-            desc: `Testbed for step : ${testcase.stepid}`,
+            title: `${testcase.title} =>  Testbed for step : ${testcase.stepid}`,
+            desc: `${testcase.title} => Testbed for step : ${testcase.stepid}`,
             args: testcase.args || {},
             globs: Testbed.globs({
                 "dataforvalidation": { type: 'json', value: JSON.stringify(testcase.expected), desc: '' },

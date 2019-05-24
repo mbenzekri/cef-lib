@@ -126,8 +126,11 @@ export const jsonArrayType: ParamType<object[]> = {
 export const regexpType: ParamType<RegExp> = {
     typename: 'regexp',
     fromString: (str: string): RegExp => {
-        const arr = str.match(/^( *\/)(.*)(\/([gimsuy]*) *)$/);
-        const flags = arr[4] ? arr[4].replace(/g/,'') : 'i'
+        const arr = str.match(/^ *(\/)(.*)(\/)([gimsuy]*)? *$/);
+        if (arr[1] !== '/' || arr[3] !== '/') {
+            throw new Error(`regexpType : regexp must start with '/' and end with '/[imsuy]' for ${str}`)
+        }
+        const flags = arr[5] ? arr[5].replace(/[imsuy]/g,'') : 'i'
         try { return new RegExp(arr[2],flags) } catch(e) {
             throw new Error(`regexpType : parameter value not a correct RegExp ${str}`)
         }

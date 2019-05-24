@@ -28,13 +28,10 @@ export class PojoFilter extends Step {
     constructor (params: ParamsMap) {
         super(declaration, params)
     }
-
-    async doit() {
-        let pojo = await this.input('pojos'); 
-        while (pojo !== EOP) {
+    async input(inport:string, pojo: any) {
+        if (inport ===  'pojos') {
             if (this.params.test) await this.output('filtered',pojo)
-            pojo = await this.input('pojos');
-        } 
+        }
     }
 }
 

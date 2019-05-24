@@ -24,7 +24,7 @@ export class PojoProducer extends Step {
     constructor (params: ParamsMap) {
         super(declaration, params)
     }
-    async doit() {
+    async process() {
         const pojos = this.params.pojos
         if(Array.isArray(pojos)) {
             for (let pojo of pojos) {

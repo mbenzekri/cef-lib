@@ -68,8 +68,11 @@ exports.jsonArrayType = {
 exports.regexpType = {
     typename: 'regexp',
     fromString: (str) => {
-        const arr = str.match(/^( *\/)(.*)(\/([gimsuy]*) *)$/);
-        const flags = arr[4] ? arr[4].replace(/g/, '') : 'i';
+        const arr = str.match(/^ *(\/)(.*)(\/)([gimsuy]*)? *$/);
+        if (arr[1] !== '/' || arr[3] !== '/') {
+            throw new Error(`regexpType : regexp must start with '/' and end with '/[imsuy]' for ${str}`);
+        }
+        const flags = arr[5] ? arr[5].replace(/[imsuy]/g, '') : 'i';
         try {
             return new RegExp(arr[2], flags);
         }

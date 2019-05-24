@@ -82,7 +82,7 @@ class Batch {
     get steps() { return this._steps }
     get globs() { return this._globs }
     get args() { return this._args }
-    toString() { return `${this._flowchart.id}[Batch: ${this._flowchart.title}]`; }
+    toString() { return `[Batch: ${this._flowchart.title}]`; }
     error(message: string) { error(this, message) }
 
     private initargs() {
@@ -118,7 +118,7 @@ class Batch {
         this._args = new Proxy(argv, {
             get: (target, property) => {
                 try {
-                    let argdef= this._flowchart.args[property.toString()]
+                    let argdef = this._flowchart.args[property.toString()]
                     argdef || this.error(`unknown argument variable "${property.toString()}" used`)
                     let type = gettype(argdef.type)
                     return target[property](type);
@@ -141,11 +141,11 @@ class Batch {
 
         this._globs = new Proxy(globs, {
             get: (target, property) => {
-                let globdef= this._flowchart.globs[property.toString()]
+                let globdef = this._flowchart.globs[property.toString()]
                 globdef || this.error(`unknown global variable "${property.toString()}" used`)
                 let type = gettype(globdef.type)
                 try {
-                    return target[property](this._args, this.globs,type);
+                    return target[property](this._args, this.globs, type);
                 } catch (e) {
                     this.error(`error "${e.message}" when evaluating global parameter "${String(property)}" due to =>\n    ${e.message}`);
                 }
@@ -193,8 +193,8 @@ class Batch {
         })
     }
 
-    async run(stepscb : (steps: Step[]) => void) {
-        DEBUG && debug(this, `Starting batch (pid: ${process.pid})`)
+    async run(stepscb: (steps: Step[]) => void) {
+        DEBUG && debug(this, `Starting batch => ${this._flowchart.title} @pid: ${process.pid}`)
         DEBUG && debug(this, `initialising arguments`)
         this.initargs()
         DEBUG && debug(this, `initialising globals`)
@@ -203,10 +203,10 @@ class Batch {
         this.initsteps()
         Object.freeze(this)
 
-        const steps = Array.from(this._steps.values()) 
+        const steps = Array.from(this._steps.values())
         try {
             stepscb && stepscb(steps)
-        } catch(e) {
+        } catch (e) {
             this.error(`onstart callback error due to => \n    ${e.message}`)
         }
         DEBUG && debug(this, `executing all the batch's steps `)
@@ -231,7 +231,7 @@ class Pipe {
     private _waits: { resolve: (value?: Promise<any>) => void, reject: (reason?: any) => void }[] = []
 
 
-    readfrom(reader: InputPort) {
+    setreader(reader: InputPort) {
         this._readers.set(reader, { filepos: 0, read: 0, done: false })
     }
 
@@ -260,7 +260,7 @@ class Pipe {
         }
     }
 
-    pop(reader: InputPort): Promise<any> {
+    async pop(reader: InputPort): Promise<any> {
         if (!this._readers.has(reader)) return
         const r = this._readers.get(reader)
         const b = Buffer.alloc(10)
@@ -321,17 +321,17 @@ class Pipe {
  * port state is ended after receiving EOF (end of flow pojo)
  */
 abstract class Port {
-    get isinput(): boolean { return false };
-    get isoutput(): boolean { return false };
     readonly name: string;
     readonly step: Step;
-    private state: State = State.idle;
+    protected state: State = State.idle;
 
+    get isinput(): boolean { return false };
+    get isoutput(): boolean { return false };
     get isstarted() { return this.state === State.started }
     get isended() { return this.state === State.ended }
     get isidle() { return this.state === State.idle }
 
-    constructor(name: string, step: Step, capacity: number = 1) {
+    constructor(name: string, step: Step) {
         this.name = name;
         this.step = step;
     }
@@ -347,28 +347,36 @@ class OutputPort extends Port {
 
     async put(pojo: any) {
         this.setState(pojo)
-        if (pojo === SOP) return await this.fifo.open()
+        if (pojo === SOP) return this.fifo.open()
         await this.fifo.push(pojo)
-        if (pojo === EOP) return await this.fifo.close()
+        if (pojo === EOP) return this.fifo.close()
     }
 }
 
 class InputPort extends Port {
-    fifos: Pipe[] = []
+    private fifos: Pipe[] = []
+    private _eopcnt = 0
     get isinput(): boolean { return true };
-
+    constructor(name: string, step: Step) {
+        super(name, step)
+        this.state = State.started
+    }
     from(fifo: Pipe) {
-        fifo.readfrom(this)
+        fifo.setreader(this)
         this.fifos.push(fifo)
     }
+    protected setState(pojo: any) {
+        if (pojo === SOP && this.isidle) this.state = State.started;
+        if (pojo === EOP && this.isstarted && ++this._eopcnt >= this.fifos.length)  this.state = State.ended;
+    }
 
-    async get() {
+    async get(): Promise<any>  {
         let pojo = EOP
         for (let i = 0; i < this.fifos.length; i++) {
             if (!this.fifos[i].closed(this)) {
                 pojo = await this.fifos[i].pop(this)
-                if (pojo === EOP) continue;
-                break
+                this.setState(pojo)
+                if (pojo !== EOP) return pojo
             }
         }
         this.setState(pojo)
@@ -391,33 +399,57 @@ class InputPort extends Port {
 
 
 abstract class Step {
+
     static register(aclass: TypeStep) {
         REGISTRY[aclass.declaration.gitid] = aclass
     }
+
     static getstep(stepid: string) {
-        return REGISTRY[stepid] 
+        return REGISTRY[stepid]
     }
+
     readonly id = uuid()
     readonly decl: Declaration
-    //private ports: { [key: string]: Port } = {}
     private _inports: { [key: string]: InputPort } = {}
     private _outports: { [key: string]: OutputPort } = {}
-    private pojo: any
-    private state = State.idle
+    private _pojo: any
+    private _state = State.idle
     private _params: any = {}
 
-    // abstract start() method must be implemented by heriting classes 
-    // start() is called for a step at batch ignition time when step have no input port
-    // start() is called when step receive first pojo (SOF) from one of its input port
-    async start() { }
+    /**
+     * start() method may be implemented by heriting classes
+     * start() is called for a step at batch ignition
+     */
+    async start() { 
+        // default method do nothing
+    }
 
-    // abstract doit() method must be implemented by heriting classes 
-    // doit() is called after start() termination
-    abstract async doit()
+    /**
+     * end() method may be implemented by heriting classes
+     * end() is called when step finished process()
+     */
+    async end() { 
+        // default method do nothing
+    }
 
-    // abstract end() method must be implemented by heriting classes 
-    // end() is called when step receive last pojo (EOF) from all of its input port
-    async end() { }
+    /**
+     * abstract input() method must be implemented by heriting classes
+     * input() is called for each received pojo
+     * @param inport input port name receiving the pojo
+     * @param pojo the received pojo
+     */
+    async input(inport:string,pojo: any): Promise<any> {
+        // default method do nothing with pojos received
+    }
+
+    //  
+    // process() is called after all data inputs completed
+    /**
+     * abstract process() method must be implemented by heriting classes
+     */
+    async process(): Promise<any> {
+        // default method do nothing
+    }
 
 
     /**
@@ -432,19 +464,20 @@ abstract class Step {
         Object.keys(decl.outputs).forEach(name => this._outports[name] = new OutputPort(name, this))
         this._params = params;
     }
+    get pojo() { return this.pojo }
     get type() { return this.decl.gitid }
     get paramlist() { return Object.keys(this.decl.parameters) }
     get params(): any { return this._params }
-    get isidle(): boolean { return this.state === State.idle }
-    get isstarted(): boolean { return this.state === State.started }
-    get isended(): boolean { return this.state === State.ended }
+    get isidle(): boolean { return this._state === State.idle }
+    get isstarted(): boolean { return this._state === State.started }
+    get isended(): boolean { return this._state === State.ended }
     get inports(): InputPort[] { return Object['values'](this._inports) }
     get outports(): OutputPort[] { return Object['values'](this._outports) }
     get isinitial() { return this.inports.length === 0 }
     get isfinal() { return this.outports.length === 0 }
     outport(name: string): OutputPort { return this._outports[name] }
     inport(name: string): InputPort { return this._inports[name] }
-    toString() { return `${this.id}[Step: ${this.decl.gitid}]`; }
+    toString() { return `[Step: ${this.decl.gitid}]`; }
     isinport(portname: string) { return this._inports[portname] ? true : false }
     isoutport(portname: string) { return this._outports[portname] ? true : false }
     port(name: string): Port { return this._inports[name] || this._outports[name] }
@@ -470,7 +503,7 @@ abstract class Step {
                     let paramdef = this.decl.parameters[property.toString()]
                     paramdef || this.error(`unknown parameter "${property.toString()}" used`)
                     let type = gettype(paramdef.type)
-                    return target[property](args, globs, this._params, this.pojo,type);
+                    return target[property](args, globs, this._params, this._pojo, type);
                 } catch (e) {
                     error(this, `error when evaluating step parameter "${String(property)}" due to  => \n    "${e.message}" `);
                 }
@@ -478,6 +511,43 @@ abstract class Step {
         });
     }
 
+    private async init() {
+        for (let i = 0; i < this.outports.length; i++) {
+            const outport = this.outports[i]
+            await outport.put(SOP)
+        }
+    }
+    private async terminate() {
+        for (let i = 0; i < this.outports.length; i++) {
+            const outport = this.outports[i]
+            await outport.put(EOP)
+        }
+    }
+
+    /**
+     * dry up a port to receive all inputed data through a given port
+     * @param port port to dry up
+     */
+    private async dryup(port: InputPort) : Promise<any> {
+        DEBUG && debug(this, `awaiting for input into port "${port.name}" `)
+        let pojo = await port.get()
+        if (pojo === EOP)  return 
+        this._pojo = pojo
+        DEBUG && debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this._pojo).substr(0, 100)}" `)
+        await this.input(port.name,pojo)
+        DEBUG && debug(this, `pojo consumed on port "${port.name} pojo ${JSON.stringify(this._pojo).substr(0, 100)}" `)
+        return this.dryup(port)
+    }
+
+    /**
+     * dry up all ports to receive all inputed data through all ports
+     * @param port port to dry up
+     */
+    private  async pump() {
+        const dryers = this.inports.map(port => this.dryup(port))
+        return Promise.all(dryers)
+    }
+    
     /**
      * method to connect this step with a data pipe
      * @param outport name of the output port in this step
@@ -489,20 +559,7 @@ abstract class Step {
         this.outports.indexOf(outport) >= 0 || error(this, `output port "${outport.name}" doesnt exists in this step trying to connect`)
         inport.from(outport.fifo);
     }
-    private async init() {
-        for (let i = 0; i < this.outports.length; i++) {
-            const outport = this.outports[i]
-            await outport.put(SOP)
-
-        }
-    }
-    private async terminate() {
-        for (let i = 0; i < this.outports.length; i++) {
-            const outport = this.outports[i]
-            await outport.put(EOP)
-        }
-    }
-
+    
     /**
      * method to output a pojo throw the corresponding port
      * @param {string} outport: a port name
@@ -516,33 +573,21 @@ abstract class Step {
         DEBUG && debug(this, `pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `)
     }
 
-    /**
-     * method to get next input pojo throw the corresponding port
-     * @param {string} inport: a port name
-     */
-    async input(inport: string) {
-        const port = this._inports[inport]
-        !port && error(this, `unknown input port  "${inport}".`);
-        DEBUG && debug(this, `awaiting for input into port "${port.name}" `)
-        this.pojo = await port.get()
-        DEBUG && debug(this, `pojo inputed on port "${port.name} pojo ${JSON.stringify(this.pojo).substr(0, 100)}" `)
-        return this.pojo
-    }
-
     async exec() {
         DEBUG && debug(this, `init phase `)
         await this.init()
         DEBUG && debug(this, `start phase `)
         await this.start()
-        DEBUG && debug(this, `doit phase `)
-        await this.doit()
+        DEBUG && debug(this, `pump phase `)
+        await this.pump()
+        DEBUG && debug(this, `process phase `)
+        await this.process()
         DEBUG && debug(this, `end phase `)
         await this.end()
         DEBUG && debug(this, `terminate phase `)
         await this.terminate()
     }
 }
-
 
 class TestbedOutput extends Step {
     static readonly gitid = 'mbenzekri/pojoe/steps/TestbedOutput'
@@ -560,7 +605,7 @@ class TestbedOutput extends Step {
         super(TestbedOutput.declaration, {})
     }
 
-    async doit() {
+    async process() {
         // output all the provided pojos for the test
         const data = this.params.dataforinjection
         for (let outport in this.decl.outputs) {
@@ -573,50 +618,44 @@ class TestbedOutput extends Step {
     }
 }
 
+const TestbedInput_gitid = 'mbenzekri/pojoe/steps/TestbedInput'
+const TestbedInput_declaration: Declaration = {
+    gitid: TestbedInput_gitid,
+    title: 'get pojos from the tested step and validate',
+    desc: 'this step receives all the pojos of the tested step and validate them among the expected data',
+    inputs: {/* to be dynamicaly created at test initialisation */ },
+    outputs: {},
+    parameters: {
+        'dataforvalidation': { default: '${ JSON.stringify(globs.dataforvalidation)}', type: 'json', title: 'data to inject into the step' }
+    },
+}
 
 
 class TestbedInput extends Step {
-    static readonly gitid: 'mbenzekri/pojoe/steps/TestbedInput'
-    static readonly declaration: Declaration = {
-        gitid: TestbedInput.gitid,
-        title: 'get pojos from the tested step and validate',
-        desc: 'this step receives all the pojos of the tested step and validate them among the expected data',
-        inputs: {/* to be dynamicaly created at test initialisation */ },
-        outputs: {},
-        parameters: {
-            'dataforvalidation': { default: '${ JSON.stringify(globs.dataforvalidation)}', type: 'json', title: 'data to inject into the step' }
-        },
-    }
+    static readonly gitid = TestbedInput_gitid
+    static readonly declaration: Declaration = TestbedInput_declaration
+    result: TestData = this.inports.reduce((prev,port) => { prev[port.name]=[]; return prev },{})
     constructor() {
-        super(TestbedInput.declaration, {})
+        super(TestbedInput_declaration, {})
     }
 
-    async doit() {
-        // get all the outputed result pojos for the test
-        const result: TestData = {}
-        for (let input in this.decl.inputs) {
-            result[input] = []
-            let pojo = await this.input(input)
-            while (pojo !== EOP) {
-                result[input].push(pojo)
-                pojo = await this.input(input)
-            }
-        }
+    async input(inport: string, pojo: any) {
+        this.result[inport].push(pojo)
+    }
+
+    async process() {
         // checks equality with expected pojos 
         const dataval = this.params.dataforvalidation
         for (let input in dataval) {
-            const outputed = result[input] || []
+            const outputed = this.result[input] || []
             const expected = dataval[input] || []
-            const isequal = equals(expected,outputed)
+            const isequal = equals(expected, outputed)
             if (!isequal) this.error(`test failed due to outputed data !== expected data on port "${input}"` +
-                `\n --- EXPECTED: \n${JSON.stringify(expected,undefined, 4)} \n --- OUTPUTED: \n${JSON.stringify(outputed,undefined, 4)} \n`)
+                `\n --- EXPECTED: \n${JSON.stringify(expected, undefined, 4)} \n --- OUTPUTED: \n${JSON.stringify(outputed, undefined, 4)} \n`)
         }
     }
 }
-/**
- * WARNING !!! du to singleton TESTCASE
- * It's ACTUALY IMPOSSIBLE TO RUN MULTIPLE TESTCASE in parallele
- */
+
 Step.register(TestbedOutput)
 Step.register(TestbedInput)
 
@@ -626,11 +665,11 @@ class Testbed extends Batch {
             Object.keys(globs2).forEach(name => {
                 globs1[name] = globs2[name]
             })
-        } 
+        }
         return globs1
     }
     static pipes(stepid: string): PipeObj[] {
-            const stepmod = REGISTRY[stepid]
+        const stepmod = REGISTRY[stepid]
         stepmod || error('Testbed', `${stepid} not registered`);
         const outpipes = Object.keys(stepmod.declaration.inputs).map(
             inport => <PipeObj>{ from: 'testbedoutput', outport: inport, to: 'testtostep', inport: inport }
@@ -639,12 +678,12 @@ class Testbed extends Batch {
             outport => <PipeObj>{ from: 'testtostep', outport: outport, to: 'testbedinput', inport: outport }
         )
         const outdecl = REGISTRY[TestbedOutput.gitid].declaration
-        const indecl = REGISTRY[TestbedInput.gitid].declaration
+        const indecl = REGISTRY[TestbedInput_gitid].declaration
         outdecl.outputs = Object.keys(stepmod.declaration.inputs).reduce((prev, port) => {
-                prev[port] = { title: 'dynamic ouput test port' }
-                return prev
+            prev[port] = { title: 'dynamic ouput test port' }
+            return prev
         }, <OutPortsMap>{})
-        indecl.inputs = Object.keys(stepmod.declaration.outputs).reduce((prev,port) => {
+        indecl.inputs = Object.keys(stepmod.declaration.outputs).reduce((prev, port) => {
             prev[port] = { title: 'dynamic input test port' }
             return prev
         }, <InPortsMap>{})
@@ -654,14 +693,14 @@ class Testbed extends Batch {
         return [
             { id: 'testbedoutput', gitid: TestbedOutput.gitid, params: {} },
             { id: 'testtostep', gitid: stepid, params: params },
-            { id: 'testbedinput', gitid: TestbedInput.gitid, params: {} },
+            { id: 'testbedinput', gitid: TestbedInput_gitid, params: {} },
         ]
     }
     constructor(testcase: Testcase) {
         super({
             id: uuid(),
-            title: `Testbed for step : ${testcase.stepid}`,
-            desc: `Testbed for step : ${testcase.stepid}`,
+            title: `${testcase.title} =>  Testbed for step : ${testcase.stepid}`,
+            desc: `${testcase.title} => Testbed for step : ${testcase.stepid}`,
             args: testcase.args || {},
             globs: Testbed.globs({
                 "dataforvalidation": { type: 'json', value: JSON.stringify(testcase.expected), desc: '' },
@@ -674,14 +713,14 @@ class Testbed extends Batch {
     static async run(tests: Testcase[]) {
         const fgred = "\x1b[31m"
         const fggreen = "\x1b[32m"
-        const reset= "\x1b[0m"
+        const reset = "\x1b[0m"
         for (let i = 0; i < tests.length; i++) {
             try {
                 const testcase = tests[i]
                 const test = new Testbed(testcase)
-                let tested : Step
-                await test.run((steps:Step[]) =>{
-                    tested = steps.find(step => step.decl.gitid === testcase.stepid) 
+                let tested: Step
+                await test.run((steps: Step[]) => {
+                    tested = steps.find(step => step.decl.gitid === testcase.stepid)
                     tested && testcase.onstart && testcase.onstart(tested)
                 })
                 tested && testcase.onend && testcase.onend(tested)

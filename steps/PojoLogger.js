@@ -31,13 +31,9 @@ class PojoLogger extends pojoe_1.Step {
     constructor(params) {
         super(declaration, params);
     }
-    doit() {
+    input(inport, pojo) {
         return __awaiter(this, void 0, void 0, function* () {
-            let pojo = yield this.input('pojos');
-            while (pojo !== pojoe_1.EOP) {
-                console.log(this.params.expression);
-                pojo = yield this.input('pojos');
-            }
+            console.log(this.params.expression);
         });
     }
 }

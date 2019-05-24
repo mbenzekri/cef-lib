@@ -25,12 +25,8 @@ export class PojoLogger extends Step {
     constructor(params: ParamsMap) {
         super(declaration, params)
     }
-    async doit() {
-        let pojo = await this.input('pojos');
-        while (pojo !== EOP) {
-            console.log(this.params.expression)
-            pojo = await this.input('pojos');
-        }
+    async input(inport:string, pojo: any) {
+        console.log(this.params.expression)
     }
 }
 

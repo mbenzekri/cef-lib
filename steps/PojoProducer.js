@@ -31,7 +31,7 @@ class PojoProducer extends pojoe_1.Step {
     constructor(params) {
         super(declaration, params);
     }
-    doit() {
+    process() {
         return __awaiter(this, void 0, void 0, function* () {
             const pojos = this.params.pojos;
             if (Array.isArray(pojos)) {

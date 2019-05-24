@@ -1,4 +1,4 @@
-import { Declaration, Flowchart, Testcase, ParamsMap, TypedParamsMap, PipeObj, StepObj } from './types';
+import { Declaration, Flowchart, Testcase, ParamsMap, TypedParamsMap, State, PipeObj, StepObj } from './types';
 declare const SOP = "SOP";
 declare const EOP = "EOP";
 declare type TypeStep = {
@@ -41,7 +41,7 @@ declare class Pipe {
     private _done;
     private _readers;
     private _waits;
-    readfrom(reader: InputPort): void;
+    setreader(reader: InputPort): void;
     open(): void;
     closed(reader?: InputPort): boolean;
     close(reader?: InputPort): void;
@@ -55,15 +55,15 @@ declare class Pipe {
  * port state is ended after receiving EOF (end of flow pojo)
  */
 declare abstract class Port {
-    readonly isinput: boolean;
-    readonly isoutput: boolean;
     readonly name: string;
     readonly step: Step;
-    private state;
+    protected state: State;
+    readonly isinput: boolean;
+    readonly isoutput: boolean;
     readonly isstarted: boolean;
     readonly isended: boolean;
     readonly isidle: boolean;
-    constructor(name: string, step: Step, capacity?: number);
+    constructor(name: string, step: Step);
     protected setState(pojo: any): void;
 }
 declare class OutputPort extends Port {
@@ -72,10 +72,13 @@ declare class OutputPort extends Port {
     put(pojo: any): Promise<void>;
 }
 declare class InputPort extends Port {
-    fifos: Pipe[];
+    private fifos;
+    private _eopcnt;
     readonly isinput: boolean;
+    constructor(name: string, step: Step);
     from(fifo: Pipe): void;
-    get(): Promise<string>;
+    protected setState(pojo: any): void;
+    get(): Promise<any>;
 }
 /**
  * @class Step
@@ -96,12 +99,30 @@ declare abstract class Step {
     readonly decl: Declaration;
     private _inports;
     private _outports;
-    private pojo;
-    private state;
+    private _pojo;
+    private _state;
     private _params;
+    /**
+     * start() method may be implemented by heriting classes
+     * start() is called for a step at batch ignition
+     */
     start(): Promise<void>;
-    abstract doit(): any;
+    /**
+     * end() method may be implemented by heriting classes
+     * end() is called when step finished process()
+     */
     end(): Promise<void>;
+    /**
+     * abstract input() method must be implemented by heriting classes
+     * input() is called for each received pojo
+     * @param inport input port name receiving the pojo
+     * @param pojo the received pojo
+     */
+    input(inport: string, pojo: any): Promise<any>;
+    /**
+     * abstract process() method must be implemented by heriting classes
+     */
+    process(): Promise<any>;
     /**
      * constructor
      * @param decl declaration object for the step
@@ -109,6 +130,7 @@ declare abstract class Step {
      * @param batch the batch containing this step
      */
     protected constructor(decl: Declaration, params: ParamsMap);
+    readonly pojo: any;
     readonly type: string;
     readonly paramlist: string[];
     readonly params: any;
@@ -134,6 +156,18 @@ declare abstract class Step {
      * @param globs: globs map provided by the batch
      */
     initparams(args: any, globs: any): void;
+    private init;
+    private terminate;
+    /**
+     * dry up a port to receive all inputed data through a given port
+     * @param port port to dry up
+     */
+    private dryup;
+    /**
+     * dry up all ports to receive all inputed data through all ports
+     * @param port port to dry up
+     */
+    private pump;
     /**
      * method to connect this step with a data pipe
      * @param outport name of the output port in this step
@@ -142,19 +176,12 @@ declare abstract class Step {
      * @param filter filter function for flowing data
      */
     connect(outport: OutputPort, inport: InputPort, filter?: (f: any) => boolean): void;
-    private init;
-    private terminate;
     /**
      * method to output a pojo throw the corresponding port
      * @param {string} outport: a port name
      * @param {any} pojo: the pojo to output
      */
     output(outport: string, pojo: any): Promise<void>;
-    /**
-     * method to get next input pojo throw the corresponding port
-     * @param {string} inport: a port name
-     */
-    input(inport: string): Promise<any>;
     exec(): Promise<void>;
 }
 declare class Testbed extends Batch {
