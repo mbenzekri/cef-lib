@@ -710,11 +710,12 @@ class Testbed extends Batch {
             pipes: Testbed.pipes(testcase.stepid)
         });
     }
-    static run(tests) {
+    static run(tests, debug = false) {
         return __awaiter(this, void 0, void 0, function* () {
             const fgred = "\x1b[31m";
             const fggreen = "\x1b[32m";
             const reset = "\x1b[0m";
+            DEBUG = debug;
             for (let i = 0; i < tests.length; i++) {
                 try {
                     const testcase = tests[i];
@@ -726,9 +727,11 @@ class Testbed extends Batch {
                     });
                     tested && testcase.onend && testcase.onend(tested);
                     console.log(`${fggreen}SUCCESS: test ${tests[i].title}${reset}`);
+                    DEBUG = false;
                 }
                 catch (e) {
                     console.error(`${fgred}FAILURE: test ${tests[i].title} due to => \n    ${e.message}${reset}`);
+                    DEBUG = false;
                 }
             }
         });
