@@ -23,7 +23,7 @@ export enum State { idle, started, ended, error }
 //enum BaseType { int, ints, number, numbers, boolean, date, dates, regexp, string, strings }
 //type BaseType = ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings')
 
-type ParamsMapDef = { [key: string]: { title: string, desc?: string; type: string, default: string, examples?: { value: string, title: string, desc?: string }[] } };
+type ParamsMapDef = { [key: string]: { title: string, desc?: string; type: string, default: string, enum?: {[key: string]: any }, examples?: { value: string, title: string, desc?: string }[] } };
 export type InPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
 export type OutPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
 type PropertiesMap = { [key: string]: { title: string, desc?: string, type: string } }

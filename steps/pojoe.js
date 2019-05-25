@@ -219,14 +219,17 @@ exports.Batch = Batch;
 class Pipe {
     constructor() {
         this.tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`;
+        this._capacity = 10;
         this._filepos = 0;
         this._written = 0;
         this._done = false;
+        this._waiting = false;
         this._readers = new Map();
-        this._waits = [];
     }
+    get readended() { return this._done && Array.from(this._readers.values()).every(reader => reader.done); }
+    get writeended() { return this._done; }
     setreader(reader) {
-        this._readers.set(reader, { filepos: 0, read: 0, done: false });
+        this._readers.set(reader, { filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null });
     }
     open() {
         try {
@@ -237,75 +240,132 @@ class Pipe {
         }
     }
     closed(reader) {
-        return (reader) ? this._readers.get(reader).done : this._done;
+        return reader ? this._readers.get(reader).done : this._done;
     }
     close(reader) {
-        if (reader) {
-            // mark reader as done
+        // mark reader or writer as done and check for termination
+        if (reader)
             this._readers.get(reader).done = true;
-        }
-        else {
-            // mark writer as done
+        if (!reader)
             this._done = true;
-        }
-        // if allcheck 
-        if (this._done && Array.from(this._readers.values()).every(reader => reader.done)) {
+        if (this.readended)
             fs.closeSync(this._fd);
+    }
+    releasereaders() {
+        // release all the waiting readers
+        for (let rstate of this._readers.values()) {
+            if (rstate.waiting) {
+                rstate.resolve();
+                rstate.waiting = false;
+                rstate.resolve = null;
+                rstate.reject = null;
+            }
         }
+    }
+    releasewriter() {
+        if (this._waiting) {
+            this._resolve();
+            this._waiting = false;
+            this._resolve = null;
+            this._reject = null;
+        }
+    }
+    write(item, resolve, reject) {
+        // we have enough capacity do the write
+        const json = JSON.stringify(item);
+        const jsonlen = Buffer.byteLength(json) + 1;
+        const len = `0000000000${jsonlen}`.slice(-10);
+        const str = len + json + '\n';
+        // we must write len+json in same call to avoid separate write du to concurrency
+        fs.write(this._fd, str, this._filepos, (err, bytes) => {
+            if (err)
+                return reject(new Error(`Pipe unable to write tempfile "${this.tmpfile}" due to  => \n    ${err.message}`));
+            // write done
+            this._filepos += bytes;
+            this._written++;
+            // write completed
+            this.releasereaders();
+            resolve();
+            console.log(`===> Pipe writer: ${this._written}  , readers: ${Array.from(this._readers.values()).map(v => v.read).join(' , ')}`);
+        });
+    }
+    read(rstate, resolve, reject) {
+        const b = Buffer.alloc(10);
+        let buf = Buffer.alloc(10000);
+        fs.read(this._fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
+            if (err)
+                return reject(new Error(`Pipe unable to read size objet fifo "${this.tmpfile}" due to => \n    ${err.message}`));
+            // length item read
+            rstate.filepos += bytes;
+            const jsonlen = parseInt(b.toString('utf8'), 10);
+            buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
+            // item start read
+            fs.read(this._fd, buf, 0, jsonlen, rstate.filepos, (err, bytes) => {
+                if (err)
+                    return reject(new Error(`Pipe unable to read data object fifo "${this.tmpfile}" due to => \n    ${err.message}`));
+                // item read
+                rstate.read++;
+                rstate.filepos += bytes;
+                const item = JSON.parse(buf.toString('utf8', 0, jsonlen));
+                // release the waiting writers may be capacity availabble (one only)
+                this.releasewriter();
+                resolve(item);
+                console.log(`===> Pipe writer: ${this._written}  , readers: ${Array.from(this._readers.values()).map(v => v.read).join(' , ')}`);
+            });
+        });
+    }
+    awaitreader(reader, resolve, reject) {
+        const rstate = this._readers.get(reader);
+        rstate.waiting = true;
+        rstate.resolve = () => resolve(this.pop(reader));
+        rstate.reject = reject;
+    }
+    awaitwriter(item, resolve, reject) {
+        this._waiting = true;
+        this._resolve = () => resolve(this.push(item));
+        this._reject = reject;
     }
     pop(reader) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this._readers.has(reader))
                 return;
-            const r = this._readers.get(reader);
-            const b = Buffer.alloc(10);
-            let buf = Buffer.alloc(10000);
+            const rstate = this._readers.get(reader);
             return new Promise((resolve, reject) => {
-                if (r.read < this._written) {
-                    fs.read(this._fd, b, 0, b.byteLength, r.filepos, (err, bytes) => {
-                        err && error('Pipe', `unable to read fifo "${this.tmpfile}" due to => \n    ${err.message}`);
-                        r.filepos += bytes;
-                        const jsonlen = parseInt(b.toString('utf8'), 10);
-                        buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
-                        fs.read(this._fd, buf, 0, jsonlen, r.filepos, (err, bytes) => {
-                            err && error('Pipe', `unable to read tempfile "${this.tmpfile}" due to => \n    ${err.message}`);
-                            r.read++;
-                            r.filepos += bytes;
-                            const obj = JSON.parse(buf.toString('utf8', 0, jsonlen));
-                            resolve(obj);
-                        });
-                    });
+                if (rstate.read < this._written) {
+                    // reader have items to read (resolve on read, reject on failure)
+                    this.read(rstate, resolve, reject);
                 }
                 else {
-                    if (this._done) {
-                        // emitter closed
+                    // if write terminated
+                    if (this.writeended) {
+                        // read reached writes , close the reader
                         this.close(reader);
-                        // all receivers closed
-                        if (Array.from(this._readers.values()).every(v => v.done))
+                        // all reader terminate reading 
+                        if (this.readended)
                             return resolve(EOP);
                     }
-                    // wait for a new object to be outputed
-                    this._waits.push({ resolve: () => resolve(this.pop(reader)), reject });
+                    this.awaitreader(reader, resolve, reject);
+                    // data writing will awake this promise, we test again for capacity
                 }
             });
         });
     }
     push(item) {
-        return new Promise((resolve, reject) => {
-            const json = JSON.stringify(item);
-            const jsonlen = Buffer.byteLength(json) + 1;
-            const len = `0000000000${jsonlen}`.slice(-10);
-            const str = len + json + '\n';
-            // we must write len+json in same call to avoid separate write du to concurrency
-            fs.write(this._fd, str, this._filepos, (err, bytes) => {
-                err && error('Pipe', `unable to write tempfile "${this.tmpfile}" due to  => \n    ${err.message}`);
-                this._filepos += bytes;
-                this._written++;
-                // release waiting readers
-                const wp = this._waits;
-                this._waits = [];
-                wp.forEach(w => w.resolve());
-                resolve();
+        return __awaiter(this, void 0, void 0, function* () {
+            // testing if all capacity is used 
+            const used = this._written - Array.from(this._readers.values()).reduce((prev, r) => prev < r.read ? prev : r.read, Number.MAX_SAFE_INTEGER);
+            // capacity exceeded writer have to wait for the readers to rejoin
+            return new Promise((resolve, reject) => {
+                // testing i enough free capacity to do the write
+                if (used < this._capacity) {
+                    // write
+                    this.write(item, resolve, reject);
+                }
+                else {
+                    // not enough wait 
+                    this.awaitwriter(item, resolve, reject);
+                    // data reading will awake this promise, we test again for capacity
+                }
             });
         });
     }
@@ -572,7 +632,7 @@ class Step {
             const port = this._outports[outport];
             !port && error(this, `unknown output port  "${outport}".`);
             DEBUG && debug(this, `awaiting for output into port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `);
-            const result = yield port.put(pojo);
+            yield port.put(pojo);
             DEBUG && debug(this, `pojo outputed on port "${port.name} pojo ${JSON.stringify(pojo).substr(0, 100)}" `);
         });
     }

@@ -26,6 +26,9 @@ declare type ParamsMapDef = {
         desc?: string;
         type: string;
         default: string;
+        enum?: {
+            [key: string]: any;
+        };
         examples?: {
             value: string;
             title: string;

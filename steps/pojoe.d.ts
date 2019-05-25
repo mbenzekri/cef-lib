@@ -36,17 +36,28 @@ declare class Batch {
 declare class Pipe {
     readonly tmpfile: string;
     private _fd;
+    private _capacity;
     private _filepos;
     private _written;
     private _done;
+    private _waiting;
+    private _resolve;
+    private _reject;
     private _readers;
-    private _waits;
+    readonly readended: boolean;
+    readonly writeended: boolean;
     setreader(reader: InputPort): void;
     open(): void;
     closed(reader?: InputPort): boolean;
     close(reader?: InputPort): void;
+    releasereaders(): void;
+    releasewriter(): void;
+    private write;
+    private read;
+    awaitreader(reader: InputPort, resolve: (value?: Promise<any>) => void, reject: (reason?: any) => void): void;
+    awaitwriter(item: any, resolve: (value?: Promise<any>) => void, reject: (reason?: any) => void): void;
     pop(reader: InputPort): Promise<any>;
-    push(item: any): Promise<void>;
+    push(item: any): Promise<{}>;
 }
 /**
  * class defining a port either an input port or an output port
