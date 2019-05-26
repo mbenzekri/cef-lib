@@ -4,14 +4,14 @@ const index_1 = require("./index");
 const tests = [
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
-        title: 'PojoProcucer empty object',
+        title: 'PojoProducer empty object',
         params: { 'pojos': "{}" },
         injected: {},
         expected: { 'pojos': [{}] },
     },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
-        title: 'PojoProcucer no inputs',
+        title: 'PojoProducer no inputs',
         params: { 'pojos': "[]" },
         injected: {},
         expected: { 'pojos': [] },
@@ -68,7 +68,7 @@ const tests = [
     },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
-        title: 'flowchart global variables type string/int/boolean/number (must replace default)',
+        title: 'flowchart argument variables type string/int/boolean/number (must replace default)',
         args: {
             'STR': { type: 'string', value: 'Bye-Bye', desc: '' },
             'INT': { type: 'int', value: '456', desc: '' },

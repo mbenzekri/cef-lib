@@ -68,7 +68,7 @@ const tests: Testcase[] = [
     },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
-        title: 'flowchart global variables type string/int/boolean/number (must replace default)',
+        title: 'flowchart argument variables type string/int/boolean/number (must replace default)',
         args: {
             'STR' : { type: 'string', value: 'Bye-Bye', desc: '' },
             'INT' : { type: 'int', value: '456', desc: '' },

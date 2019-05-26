@@ -219,53 +219,66 @@ exports.Batch = Batch;
 class Pipe {
     constructor() {
         this.tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`;
-        this._capacity = 10;
-        this._used = 0;
+        this.capacity = 10;
+        this._fd = -1;
         this._filepos = 0;
         this._written = 0;
-        this._done = false;
-        this._waiting = false;
+        this._consumed = 0;
         this._readers = new Map();
+        this._writers = new Map();
     }
-    get readended() { return Array.from(this._readers.values()).every(reader => reader.done); }
-    get writeended() { return this._done; }
+    get readended() {
+        for (const [_, rstate] of this._readers)
+            if (!rstate.done)
+                return false;
+        return true;
+    }
+    get writeended() {
+        for (const [_, wstate] of this._writers)
+            if (!wstate.done)
+                return false;
+        return true;
+    }
     get ended() { return this.writeended && this.readended; }
-    forward(arg, bytes) {
-        if (bytes) {
-            // item read
-            const rstate = arg;
-            rstate.read++;
-            rstate.filepos += bytes;
-            rstate.done = this._done && rstate.filepos >= this._written;
-            if (this.ended)
-                fs.closeSync(this._fd);
-        }
-        else {
-            bytes = arg;
-            this._written++;
-            this._filepos += bytes;
-        }
+    // get bytesread() {
+    //     let min = Number.MAX_SAFE_INTEGER
+    //     for (const [_, rstate] of this._readers) if (rstate.filepos < min) return min = rstate.filepos
+    //     return min
+    // }
+    // get byteswrite() { return this._written }
+    fwdread(rstate, bytes) {
+        rstate.read++;
+        rstate.filepos += bytes;
+        rstate.done = this.writeended && rstate.read >= this._written;
+        if (this.ended)
+            fs.closeSync(this._fd);
     }
-    setreader(reader) {
+    fwdwrite(wstate, bytes) {
+        this._written++;
+        this._filepos += bytes;
+    }
+    addreader(reader) {
         this._readers.set(reader, { filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null });
     }
-    open() {
+    isdone(port) {
+        return (port instanceof InputPort) ? this._readers.get(port).done : this._writers.get(port).done;
+    }
+    open(writer) {
         try {
-            this._fd = fs.openSync(this.tmpfile, 'a+');
+            if (this._fd === -1)
+                this._fd = fs.openSync(this.tmpfile, 'a+');
         }
         catch (e) {
             error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to => \n    ${e.message}`);
         }
+        this._writers.set(writer, { done: false, waiting: false, resolve: null, reject: null });
     }
-    close() {
-        this._done = true;
-    }
-    closed(reader) {
-        return reader ? this._readers.get(reader).done : this._done;
+    close(writer) {
+        this._writers.delete(writer);
     }
     releasereaders() {
         // release all the waiting readers
-        for (let rstate of this._readers.values()) {
+        for (let [_, rstate] of this._readers) {
             if (rstate.waiting) {
                 rstate.resolve();
                 rstate.waiting = false;
@@ -274,17 +287,21 @@ class Pipe {
             }
         }
     }
-    releasewriter() {
-        if (this._waiting) {
-            this._resolve();
-            this._waiting = false;
-            this._resolve = null;
-            this._reject = null;
+    releasewriters() {
+        // release all the waiting writers
+        for (let [_, wstate] of this._writers) {
+            if (wstate.waiting) {
+                wstate.resolve();
+                wstate.waiting = false;
+                wstate.resolve = null;
+                wstate.reject = null;
+            }
         }
     }
-    write(item, resolve, reject) {
+    write(wstate, item, resolve, reject) {
         // one capacity consumed
-        this._used++;
+        this._consumed++;
+        // calculating json string and size to write
         const json = JSON.stringify(item);
         const jsonlen = Buffer.byteLength(json) + 1;
         const len = `0000000000${jsonlen}`.slice(-10);
@@ -293,13 +310,11 @@ class Pipe {
         fs.write(this._fd, str, this._filepos, (err, bytes) => {
             if (err)
                 return reject(new Error(`Pipe unable to write tempfile "${this.tmpfile}" due to  => \n    ${err.message}`));
-            // item written
-            this.forward(bytes);
-            // one capacity returned
-            this._used++;
-            // capacity has been returned release writer
-            this.releasewriter();
-            // data had been written release readers
+            // return one capacity returned then release writer
+            this._consumed--;
+            this.fwdwrite(wstate, bytes);
+            this.releasewriters();
+            // forward writer means data is provided then release readers
             this.releasereaders();
             resolve();
         });
@@ -309,16 +324,16 @@ class Pipe {
         let buf = Buffer.alloc(10000);
         fs.read(this._fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
             if (err)
-                return reject(new Error(`Pipe unable to read size objet fifo "${this.tmpfile}" due to => \n    ${err.message}`));
+                return reject(new Error(`Pipe unable to read size object from file "${this.tmpfile}" due to => \n    ${err.message}`));
             // length item read
             const jsonlen = parseInt(b.toString('utf8'), 10);
             buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
             // item start read
             fs.read(this._fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
                 if (err)
-                    return reject(new Error(`Pipe unable to read data object fifo "${this.tmpfile}" due to => \n    ${err.message}`));
-                // item read
-                this.forward(rstate, bytes + 10);
+                    return reject(new Error(`Pipe unable to read data object from file "${this.tmpfile}" due to => \n    ${err.message}`));
+                // forward reader data is consumed
+                this.fwdread(rstate, bytes + 10);
                 // extract item from buffer
                 const item = JSON.parse(buf.toString('utf8', 0, jsonlen));
                 resolve(item);
@@ -331,45 +346,47 @@ class Pipe {
         rstate.resolve = () => resolve(this.pop(reader));
         rstate.reject = reject;
     }
-    awaitwriter(item, resolve, reject) {
-        this._waiting = true;
-        this._resolve = () => resolve(this.push(item));
-        this._reject = reject;
+    awaitwriter(writer, item, resolve, reject) {
+        const wstate = this._writers.get(writer);
+        wstate.waiting = true;
+        wstate.resolve = () => resolve(this.push(writer, item));
+        wstate.reject = reject;
     }
     pop(reader) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this._readers.has(reader))
-                return;
-            return new Promise((resolve, reject) => {
-                const rstate = this._readers.get(reader);
-                if (rstate.read < this._written) {
-                    // reader have items to read (resolve on read, reject on failure)
+            const rstate = this._readers.get(reader);
+            return rstate && new Promise((resolve, reject) => {
+                // all writer terminated return EOP (End Of Pojos) 
+                if (rstate.done)
+                    return resolve(EOP);
+                // data ready ?
+                if (rstate.read < this._written)
+                    // reader have items to read go read
                     this.read(rstate, resolve, reject);
-                }
-                else {
-                    // all writer/reader terminated 
-                    if (this.ended)
-                        return resolve(EOP);
-                    // wait for new writes
+                else
+                    // wait for new data that will be ready after a write termination
                     this.awaitreader(reader, resolve, reject);
-                    // when data written release me
-                }
             });
         });
     }
-    push(item) {
+    push(writer, item) {
         return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve, reject) => {
-                // testing if enough free capacity 
-                if (this._used < this._capacity) {
+            const wstate = this._writers.get(writer);
+            if (item === SOP)
+                yield this.open(writer);
+            if (item === EOP)
+                yield this.close(writer);
+            return wstate && new Promise((resolve, reject) => {
+                // reader terminated nothing to do
+                if (wstate.done)
+                    return resolve();
+                // free capacity ?
+                if (this._consumed < this.capacity)
                     // enough capacity go write
-                    this.write(item, resolve, reject);
-                }
-                else {
-                    // not enough capacity go wait 
-                    this.awaitwriter(item, resolve, reject);
-                    // when data written release me (for testing again)
-                }
+                    this.write(wstate, item, resolve, reject);
+                else
+                    // wait for capacity that will be released after a write termination
+                    this.awaitwriter(writer, item, resolve, reject);
             });
         });
     }
@@ -403,45 +420,41 @@ class Port {
 class OutputPort extends Port {
     constructor() {
         super(...arguments);
-        this.fifo = new Pipe();
+        this.pipe = new Pipe();
     }
     get isoutput() { return true; }
     put(pojo) {
         return __awaiter(this, void 0, void 0, function* () {
             this.setState(pojo);
-            if (pojo === SOP)
-                return this.fifo.open();
-            yield this.fifo.push(pojo);
-            if (pojo === EOP)
-                return this.fifo.close();
+            yield this.pipe.push(this, pojo);
         });
     }
 }
 class InputPort extends Port {
     constructor(name, step) {
         super(name, step);
-        this.fifos = [];
+        this.pipes = [];
         this._eopcnt = 0;
         this.state = types_1.State.started;
     }
     get isinput() { return true; }
     ;
-    from(fifo) {
-        fifo.setreader(this);
-        this.fifos.push(fifo);
+    from(pipe) {
+        pipe.addreader(this);
+        this.pipes.push(pipe);
     }
     setState(pojo) {
         if (pojo === SOP && this.isidle)
             this.state = types_1.State.started;
-        if (pojo === EOP && this.isstarted && ++this._eopcnt >= this.fifos.length)
+        if (pojo === EOP && this.isstarted && ++this._eopcnt >= this.pipes.length)
             this.state = types_1.State.ended;
     }
     get() {
         return __awaiter(this, void 0, void 0, function* () {
             let pojo = EOP;
-            for (let i = 0; i < this.fifos.length; i++) {
-                if (!this.fifos[i].closed(this)) {
-                    pojo = yield this.fifos[i].pop(this);
+            for (let i = 0; i < this.pipes.length; i++) {
+                if (!this.pipes[i].isdone(this)) {
+                    pojo = yield this.pipes[i].pop(this);
                     this.setState(pojo);
                     if (pojo !== EOP)
                         return pojo;
@@ -625,7 +638,7 @@ class Step {
      */
     connect(outport, inport, filter = f => true) {
         this.outports.indexOf(outport) >= 0 || error(this, `output port "${outport.name}" doesnt exists in this step trying to connect`);
-        inport.from(outport.fifo);
+        inport.from(outport.pipe);
     }
     /**
      * method to output a pojo throw the corresponding port
@@ -670,7 +683,8 @@ class TestbedOutput extends Step {
             for (let outport in this.decl.outputs) {
                 if (data[outport]) {
                     for (let i = 0; i < data[outport].length; i++) {
-                        yield this.output(outport, data[outport][i]);
+                        const pojo = data[outport][i];
+                        yield this.output(outport, pojo);
                     }
                 }
             }

@@ -33,42 +33,48 @@ declare class Batch {
     private initsteps;
     run(stepscb?: (steps: Step[]) => void): Promise<void>;
 }
-declare type ReaderState = {
+declare type ResFunc = (value?: Promise<any>) => void;
+declare type RejFunc = (reason?: any) => void;
+declare type RState = {
     filepos: number;
     read: number;
     done: boolean;
     waiting: boolean;
-    resolve: (value?: Promise<any>) => void;
-    reject: (reason?: any) => void;
+    resolve: ResFunc;
+    reject: RejFunc;
+};
+declare type WState = {
+    done: boolean;
+    waiting: boolean;
+    resolve: ResFunc;
+    reject: RejFunc;
 };
 declare class Pipe {
     readonly tmpfile: string;
+    readonly capacity = 10;
     private _fd;
-    private _capacity;
-    private _used;
     private _filepos;
     private _written;
-    private _done;
-    private _waiting;
-    private _resolve;
-    private _reject;
+    private _consumed;
     private _readers;
+    private _writers;
     readonly readended: boolean;
     readonly writeended: boolean;
     readonly ended: boolean;
-    forward(arg: ReaderState | number, bytes?: number): void;
-    setreader(reader: InputPort): void;
-    open(): void;
-    close(): void;
-    closed(reader?: InputPort): boolean;
-    releasereaders(): void;
-    releasewriter(): void;
+    fwdread(rstate: RState, bytes: number): void;
+    fwdwrite(wstate: WState, bytes: number): void;
+    addreader(reader: InputPort): void;
+    isdone(port: InputPort | OutputPort): boolean;
+    private open;
+    private close;
+    private releasereaders;
+    private releasewriters;
     private write;
     private read;
-    awaitreader(reader: InputPort, resolve: (value?: Promise<any>) => void, reject: (reason?: any) => void): void;
-    awaitwriter(item: any, resolve: (value?: Promise<any>) => void, reject: (reason?: any) => void): void;
+    awaitreader(reader: InputPort, resolve: ResFunc, reject: RejFunc): void;
+    awaitwriter(writer: OutputPort, item: any, resolve: ResFunc, reject: RejFunc): void;
     pop(reader: InputPort): Promise<any>;
-    push(item: any): Promise<{}>;
+    push(writer: OutputPort, item: any): Promise<any>;
 }
 /**
  * class defining a port either an input port or an output port
@@ -89,16 +95,16 @@ declare abstract class Port {
     protected setState(pojo: any): void;
 }
 declare class OutputPort extends Port {
-    readonly fifo: Pipe;
+    readonly pipe: Pipe;
     readonly isoutput: boolean;
     put(pojo: any): Promise<void>;
 }
 declare class InputPort extends Port {
-    private fifos;
+    private pipes;
     private _eopcnt;
     readonly isinput: boolean;
     constructor(name: string, step: Step);
-    from(fifo: Pipe): void;
+    from(pipe: Pipe): void;
     protected setState(pojo: any): void;
     get(): Promise<any>;
 }
