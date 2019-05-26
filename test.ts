@@ -4,14 +4,14 @@ import { Url, Path  } from './types'
 const tests: Testcase[] = [
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
-        title: 'PojoProcucer empty object',
+        title: 'PojoProducer empty object',
         params: { 'pojos': "{}" },
         injected: {},
         expected: { 'pojos': [{}] },
     },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
-        title: 'PojoProcucer no inputs',
+        title: 'PojoProducer no inputs',
         params: { 'pojos': "[]" },
         injected: {},
         expected: { 'pojos': [] },
