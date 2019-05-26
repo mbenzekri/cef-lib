@@ -106,6 +106,7 @@ declare class InputPort extends Port {
 declare abstract class Step {
     static register(aclass: TypeStep): void;
     static getstep(stepid: string): TypeStep;
+    private locals;
     readonly id: any;
     readonly decl: Declaration;
     private _inports;

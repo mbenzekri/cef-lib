@@ -286,7 +286,6 @@ class Pipe {
             // write completed
             this.releasereaders();
             resolve();
-            console.log(`===> Pipe writer: ${this._written}  , readers: ${Array.from(this._readers.values()).map(v => v.read).join(' , ')}`);
         });
     }
     read(rstate, resolve, reject) {
@@ -310,7 +309,6 @@ class Pipe {
                 // release the waiting writers may be capacity availabble (one only)
                 this.releasewriter();
                 resolve(item);
-                console.log(`===> Pipe writer: ${this._written}  , readers: ${Array.from(this._readers.values()).map(v => v.read).join(' , ')}`);
             });
         });
     }
@@ -468,6 +466,7 @@ class Step {
      * @param batch the batch containing this step
      */
     constructor(decl, params) {
+        this.locals = {};
         this.id = uuid();
         this._inports = {};
         this._outports = {};
@@ -552,14 +551,14 @@ class Step {
         const paramsfn = {};
         this.paramlist.forEach(name => {
             !(name in this.decl.parameters) && error(this, `unknown parameter "${name}" it must be one of "${toString()}"`);
-            paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name] || this.decl.parameters[name].default);
+            paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name] || this.decl.parameters[name].default).bind(this.locals || {});
         });
         this._params = new Proxy(paramsfn, {
             get: (target, property) => {
                 try {
                     let paramdef = this.decl.parameters[property.toString()];
                     paramdef || this.error(`unknown parameter "${property.toString()}" used`);
-                    let type = types_1.gettype(paramdef.type);
+                    const type = types_1.gettype(paramdef.type);
                     return target[property](args, globs, this._params, this._pojo, type);
                 }
                 catch (e) {

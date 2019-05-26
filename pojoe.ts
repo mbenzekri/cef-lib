@@ -293,7 +293,6 @@ class Pipe {
             // write completed
             this.releasereaders()
             resolve()
-            console.log(`===> Pipe writer: ${this._written}  , readers: ${Array.from(this._readers.values()).map(v => v.read).join(' , ')}`)
         })
     }
 
@@ -317,7 +316,6 @@ class Pipe {
                 // release the waiting writers may be capacity availabble (one only)
                 this.releasewriter();
                 resolve(item)
-                console.log(`===> Pipe writer: ${this._written}  , readers: ${Array.from(this._readers.values()).map(v => v.read).join(' , ')}`)
             })
         })
     }
@@ -467,6 +465,7 @@ abstract class Step {
     static getstep(stepid: string) {
         return REGISTRY[stepid]
     }
+    private locals = {}
 
     readonly id = uuid()
     readonly decl: Declaration
@@ -554,7 +553,7 @@ abstract class Step {
         const paramsfn = {}
         this.paramlist.forEach(name => {
             !(name in this.decl.parameters) && error(this, `unknown parameter "${name}" it must be one of "${toString()}"`);
-            paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name] || this.decl.parameters[name].default)
+            paramsfn[name] = paramfunc(this.decl.parameters[name].type, this._params[name] || this.decl.parameters[name].default).bind(this.locals || {} )
         });
 
         this._params = new Proxy(paramsfn, {
@@ -562,7 +561,7 @@ abstract class Step {
                 try {
                     let paramdef = this.decl.parameters[property.toString()]
                     paramdef || this.error(`unknown parameter "${property.toString()}" used`)
-                    let type = gettype(paramdef.type)
+                    const type = gettype(paramdef.type)
                     return target[property](args, globs, this._params, this._pojo, type);
                 } catch (e) {
                     error(this, `error when evaluating step parameter "${String(property)}" due to  => \n    "${e.message}" `);
