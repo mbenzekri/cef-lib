@@ -33,10 +33,19 @@ declare class Batch {
     private initsteps;
     run(stepscb?: (steps: Step[]) => void): Promise<void>;
 }
+declare type ReaderState = {
+    filepos: number;
+    read: number;
+    done: boolean;
+    waiting: boolean;
+    resolve: (value?: Promise<any>) => void;
+    reject: (reason?: any) => void;
+};
 declare class Pipe {
     readonly tmpfile: string;
     private _fd;
     private _capacity;
+    private _used;
     private _filepos;
     private _written;
     private _done;
@@ -46,10 +55,12 @@ declare class Pipe {
     private _readers;
     readonly readended: boolean;
     readonly writeended: boolean;
+    readonly ended: boolean;
+    forward(arg: ReaderState | number, bytes?: number): void;
     setreader(reader: InputPort): void;
     open(): void;
+    close(): void;
     closed(reader?: InputPort): boolean;
-    close(reader?: InputPort): void;
     releasereaders(): void;
     releasewriter(): void;
     private write;
