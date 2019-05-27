@@ -1,12 +1,10 @@
-/**
- *  on memory step registry (Step Map)
- */
 export declare type Declaration = {
     gitid: string;
     title: string;
     desc: string;
     features?: string[];
     parameters: ParamsMapDef;
+    locals?: LocalsMapDef;
     inputs: InPortsMap;
     outputs: OutPortsMap;
     examples?: {
@@ -34,6 +32,13 @@ declare type ParamsMapDef = {
             title: string;
             desc?: string;
         }[];
+    };
+};
+declare type LocalsMapDef = {
+    [key: string]: {
+        type: string;
+        title: string;
+        desc?: string;
     };
 };
 export declare type InPortsMap = {

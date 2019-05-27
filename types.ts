@@ -2,15 +2,13 @@ import * as path from 'path';
 import * as url from 'url'
 import * as fs from 'fs';
 
-/**
- *  on memory step registry (Step Map)
- */
 export type Declaration = {
     gitid: string;
     title: string;
     desc: string;
     features?: string[];
     parameters: ParamsMapDef;
+    locals?: LocalsMapDef;
     inputs: InPortsMap;
     outputs: OutPortsMap;
     examples?: { title: string, desc: string }[];
@@ -23,7 +21,8 @@ export enum State { idle, started, ended, error }
 //enum BaseType { int, ints, number, numbers, boolean, date, dates, regexp, string, strings }
 //type BaseType = ('int'|'ints'|'number'|'numbers'|'regexp'|'boolean'|'date'|'dates'|'regexp'|'string'|'strings')
 
-type ParamsMapDef = { [key: string]: { title: string, desc?: string; type: string, default: string, enum?: {[key: string]: any }, examples?: { value: string, title: string, desc?: string }[] } };
+type ParamsMapDef = { [key: string]: { title: string, desc?: string; type: string, default: string, enum?: {[key: string]: any }, examples?: { value: string, title: string, desc?: string }[] } }
+type LocalsMapDef = { [key: string]: { type: string, title: string, desc?: string; }}
 export type InPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
 export type OutPortsMap = { [key: string]: { title: string, desc?: string, properties?: PropertiesMap } }
 type PropertiesMap = { [key: string]: { title: string, desc?: string, type: string } }
