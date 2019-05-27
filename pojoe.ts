@@ -495,7 +495,7 @@ abstract class Step {
     static getstep(stepid: string) {
         return REGISTRY[stepid]
     }
-    private locals = {}
+    protected readonly locals: { [key:string]: any } = {}
 
     readonly id = uuid()
     readonly decl: Declaration
