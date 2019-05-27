@@ -34,22 +34,6 @@ declare class Batch {
     private logcounts;
     run(stepscb?: (steps: Step[]) => void): Promise<void>;
 }
-declare type ResFunc = (value?: Promise<any>) => void;
-declare type RejFunc = (reason?: any) => void;
-declare type RState = {
-    filepos: number;
-    read: number;
-    done: boolean;
-    waiting: boolean;
-    resolve: ResFunc;
-    reject: RejFunc;
-};
-declare type WState = {
-    done: boolean;
-    waiting: boolean;
-    resolve: ResFunc;
-    reject: RejFunc;
-};
 declare class Pipe {
     readonly tmpfile: string;
     readonly capacity = 10;
@@ -58,25 +42,25 @@ declare class Pipe {
     private _written;
     private _consumed;
     private _readers;
-    private _writers;
+    private _writer;
     readonly readended: boolean;
     readonly writeended: boolean;
     readonly ended: boolean;
     readonly hasreaders: boolean;
-    fwdread(rstate: RState, bytes: number): void;
-    fwdwrite(wstate: WState, bytes: number): void;
-    addreader(reader: InputPort): void;
-    isdone(port: InputPort | OutputPort): boolean;
+    private fwdread;
+    private fwdwrite;
     private open;
     private close;
     private releasereaders;
-    private releasewriters;
+    private releasewriter;
     private write;
     private read;
-    awaitreader(reader: InputPort, resolve: ResFunc, reject: RejFunc): void;
-    awaitwriter(writer: OutputPort, item: any, resolve: ResFunc, reject: RejFunc): void;
+    private awaitreader;
+    private awaitwriter;
+    addreader(reader: InputPort): void;
+    isdone(port: InputPort): boolean;
     pop(reader: InputPort): Promise<any>;
-    push(writer: OutputPort, item: any): Promise<any>;
+    push(item: any): Promise<any>;
 }
 /**
  * class defining a port either an input port or an output port

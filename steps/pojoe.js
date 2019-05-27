@@ -239,7 +239,7 @@ class Pipe {
         this._written = 0;
         this._consumed = 0;
         this._readers = new Map();
-        this._writers = new Map();
+        this._writer = { done: false, waiting: false, resolve: null, reject: null };
     }
     get readended() {
         for (const [_, rstate] of this._readers)
@@ -247,12 +247,7 @@ class Pipe {
                 return false;
         return true;
     }
-    get writeended() {
-        for (const [_, wstate] of this._writers)
-            if (!wstate.done)
-                return false;
-        return true;
-    }
+    get writeended() { return this._writer.done; }
     get ended() { return this.writeended && this.readended; }
     get hasreaders() { return this._readers.size > 0; }
     fwdread(rstate, bytes) {
@@ -266,13 +261,7 @@ class Pipe {
         this._written++;
         this._filepos += bytes;
     }
-    addreader(reader) {
-        this._readers.set(reader, { filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null });
-    }
-    isdone(port) {
-        return (port instanceof InputPort) ? this._readers.get(port).done : this._writers.get(port).done;
-    }
-    open(writer) {
+    open() {
         try {
             if (this._fd === -1)
                 this._fd = fs.openSync(this.tmpfile, 'a+');
@@ -280,10 +269,14 @@ class Pipe {
         catch (e) {
             error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to => \n    ${e.message}`);
         }
-        this._writers.set(writer, { done: false, waiting: false, resolve: null, reject: null });
+        this._writer.done = false;
+        this._writer.waiting = false;
+        this._writer.resolve = null;
+        this._writer.reject = null;
     }
-    close(writer) {
-        this._writers.delete(writer);
+    close() {
+        this._writer.done = true;
+        this.releasereaders();
     }
     releasereaders() {
         // release all the waiting readers
@@ -296,15 +289,13 @@ class Pipe {
             }
         }
     }
-    releasewriters() {
-        // release all the waiting writers
-        for (let [_, wstate] of this._writers) {
-            if (wstate.waiting) {
-                wstate.resolve();
-                wstate.waiting = false;
-                wstate.resolve = null;
-                wstate.reject = null;
-            }
+    releasewriter() {
+        // release the waiting writer
+        if (this._writer.waiting) {
+            this._writer.resolve();
+            this._writer.waiting = false;
+            this._writer.resolve = null;
+            this._writer.reject = null;
         }
     }
     write(wstate, item, resolve, reject) {
@@ -322,7 +313,7 @@ class Pipe {
             // return one capacity returned then release writer
             this._consumed--;
             this.fwdwrite(wstate, bytes);
-            this.releasewriters();
+            this.releasewriter();
             // forward writer means data is provided then release readers
             this.releasereaders();
             resolve();
@@ -355,21 +346,30 @@ class Pipe {
         rstate.resolve = () => resolve(this.pop(reader));
         rstate.reject = reject;
     }
-    awaitwriter(writer, item, resolve, reject) {
-        const wstate = this._writers.get(writer);
-        wstate.waiting = true;
-        wstate.resolve = () => resolve(this.push(writer, item));
-        wstate.reject = reject;
+    awaitwriter(item, resolve, reject) {
+        this._writer.waiting = true;
+        this._writer.resolve = () => resolve(this.push(item));
+        this._writer.reject = reject;
+    }
+    addreader(reader) {
+        this._readers.set(reader, { filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null });
+    }
+    isdone(port) {
+        return this._readers.get(port).done;
     }
     pop(reader) {
         return __awaiter(this, void 0, void 0, function* () {
             const rstate = this._readers.get(reader);
             return rstate && new Promise((resolve, reject) => {
-                // all writer terminated return EOP (End Of Pojos) 
+                // reader terminated return EOP (End Of Pojos) 
                 if (rstate.done)
                     return resolve(EOP);
                 // data ready ?
-                if (rstate.read < this._written)
+                if (rstate.read == this._written && this.writeended) {
+                    rstate.done = true;
+                    return resolve(EOP);
+                }
+                else if (rstate.read < this._written)
                     // reader have items to read go read
                     this.read(rstate, resolve, reject);
                 else
@@ -378,24 +378,27 @@ class Pipe {
             });
         });
     }
-    push(writer, item) {
+    push(item) {
         return __awaiter(this, void 0, void 0, function* () {
-            const wstate = this._writers.get(writer);
-            if (item === SOP)
-                yield this.open(writer);
-            if (item === EOP)
-                yield this.close(writer);
-            return wstate && new Promise((resolve, reject) => {
+            if (item === SOP) {
+                this.open();
+                return Promise.resolve();
+            }
+            if (item === EOP) {
+                this.close();
+                return Promise.resolve();
+            }
+            return new Promise((resolve, reject) => {
                 // reader terminated nothing to do
-                if (wstate.done)
+                if (this._writer.done)
                     return resolve();
                 // free capacity ?
                 if (this._consumed < this.capacity)
                     // enough capacity go write
-                    this.write(wstate, item, resolve, reject);
+                    this.write(this._writer, item, resolve, reject);
                 else
                     // wait for capacity that will be released after a write termination
-                    this.awaitwriter(writer, item, resolve, reject);
+                    this.awaitwriter(item, resolve, reject);
             });
         });
     }
@@ -440,7 +443,7 @@ class OutputPort extends Port {
     put(pojo) {
         return __awaiter(this, void 0, void 0, function* () {
             this.setState(pojo);
-            yield this.pipe.push(this, pojo).then(_ => pojo !== SOP && pojo !== EOP && this._count++).catch(e => Promise.reject(e));
+            yield this.pipe.push(pojo).then(_ => pojo !== SOP && pojo !== EOP && this._count++).catch(e => Promise.reject(e));
         });
     }
 }

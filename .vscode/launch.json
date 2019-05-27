@@ -14,7 +14,7 @@
             "outFiles": [
                 "${workspaceFolder}//**/*.js"
             ],
-            "args": [ "--STR=Hello", "--INT=123", "--BOOL=true", "--NUM=3.14159265" ]
+            "args": [ "--STR=Hello", "--INT=123", "--BOOL=true", "--NUM=3.14159265", "--COUNT" ]
         }
     ]
 }
