@@ -573,7 +573,8 @@ abstract class Step {
     log(message: string) { console.log(message) }
     error(message: string) { error(this, message) }
     debug(message: string) { debug(this, message) }
-
+    inconnected(port: string): boolean { return this._inports[port] ? true : false }
+    outconnected(port: string): boolean { return this._outports[port] ? true : false }
     /**
      * initialize dynamic step parameter access
      * @param args: arguments map provided by the batch  

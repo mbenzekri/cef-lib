@@ -181,6 +181,8 @@ declare abstract class Step {
     log(message: string): void;
     error(message: string): void;
     debug(message: string): void;
+    inconnected(port: string): boolean;
+    outconnected(port: string): boolean;
     /**
      * initialize dynamic step parameter access
      * @param args: arguments map provided by the batch
