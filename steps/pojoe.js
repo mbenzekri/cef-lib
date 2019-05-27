@@ -237,6 +237,7 @@ class Pipe {
         this._fd = -1;
         this._filepos = 0;
         this._written = 0;
+        this._towrite = 0;
         this._consumed = 0;
         this._readers = new Map();
         this._writer = { done: false, waiting: false, resolve: null, reject: null };
@@ -247,13 +248,13 @@ class Pipe {
                 return false;
         return true;
     }
-    get writeended() { return this._writer.done; }
+    get writeended() { return this._writer.done && this._written >= this._towrite; }
     get ended() { return this.writeended && this.readended; }
     get hasreaders() { return this._readers.size > 0; }
     fwdread(rstate, bytes) {
         rstate.read++;
         rstate.filepos += bytes;
-        rstate.done = this.writeended && rstate.read >= this._written;
+        rstate.done = this.writeended && rstate.read >= this._towrite;
         if (this.ended)
             fs.closeSync(this._fd);
     }
@@ -360,12 +361,13 @@ class Pipe {
     pop(reader) {
         return __awaiter(this, void 0, void 0, function* () {
             const rstate = this._readers.get(reader);
+            // reader terminated return EOP (End Of Pojos) 
+            if (rstate.done)
+                return Promise.resolve(EOP);
             return rstate && new Promise((resolve, reject) => {
-                // reader terminated return EOP (End Of Pojos) 
-                if (rstate.done)
-                    return resolve(EOP);
                 // data ready ?
-                if (rstate.read == this._written && this.writeended) {
+                if (rstate.read == this._towrite && this.writeended) {
+                    // case for no pojos ouputed (open followed by close)
                     rstate.done = true;
                     return resolve(EOP);
                 }
@@ -388,6 +390,7 @@ class Pipe {
                 this.close();
                 return Promise.resolve();
             }
+            this._towrite++;
             return new Promise((resolve, reject) => {
                 // reader terminated nothing to do
                 if (this._writer.done)

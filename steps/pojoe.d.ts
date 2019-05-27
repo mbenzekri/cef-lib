@@ -40,6 +40,7 @@ declare class Pipe {
     private _fd;
     private _filepos;
     private _written;
+    private _towrite;
     private _consumed;
     private _readers;
     private _writer;

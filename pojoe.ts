@@ -244,6 +244,7 @@ class Pipe {
     private _fd: number = -1
     private _filepos: number = 0
     private _written: number = 0
+    private _towrite: number = 0
     private _consumed = 0
     private _readers: Map<InputPort, RState> = new Map()
     private _writer: WState = { done: false, waiting: false, resolve: null, reject: null }
@@ -252,14 +253,14 @@ class Pipe {
         for (const [_, rstate] of this._readers) if (!rstate.done) return false
         return true
     }
-    get writeended(): boolean { return this._writer.done }
+    get writeended(): boolean { return this._writer.done && this._written >= this._towrite }
     get ended(): boolean { return this.writeended && this.readended }
     get hasreaders(): boolean { return this._readers.size > 0 }
 
     private fwdread(rstate: RState, bytes: number): void {
         rstate.read++
         rstate.filepos += bytes;
-        rstate.done = this.writeended && rstate.read >= this._written
+        rstate.done = this.writeended && rstate.read >= this._towrite
         if (this.ended) fs.closeSync(this._fd)
     }
     private fwdwrite(wstate: WState, bytes: number): void {
@@ -375,13 +376,11 @@ class Pipe {
 
     async pop(reader: InputPort): Promise<any> {
         const rstate = this._readers.get(reader)
+        // reader terminated return EOP (End Of Pojos) 
+        if (rstate.done) return Promise.resolve(EOP)
         return rstate && new Promise((resolve, reject) => {
-
-            // reader terminated return EOP (End Of Pojos) 
-            if (rstate.done) return resolve(EOP)
-
             // data ready ?
-            if (rstate.read == this._written && this.writeended) {
+            if (rstate.read == this._towrite && this.writeended) {
                 // case for no pojos ouputed (open followed by close)
                 rstate.done = true
                 return resolve(EOP)
@@ -397,6 +396,7 @@ class Pipe {
     async push(item: any): Promise<any> {
         if (item === SOP) { this.open();  return Promise.resolve(); }
         if (item === EOP) { this.close(); return Promise.resolve(); }
+        this._towrite++
         return new Promise((resolve, reject) => {
 
             // reader terminated nothing to do
