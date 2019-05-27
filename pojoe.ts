@@ -399,8 +399,8 @@ class Pipe {
         this._towrite++
         return new Promise((resolve, reject) => {
 
-            // reader terminated nothing to do
-            if (this._writer.done) return resolve()
+            // writer terminated nothing to do
+            /// NO WRITER is finished when _written == _towrite if (this._writer.done) return resolve()
 
             // free capacity ?
             if (this._consumed < this.capacity) 
