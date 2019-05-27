@@ -31,6 +31,7 @@ declare class Batch {
      * @param {Step} step: a step to add to this batch
      */
     private initsteps;
+    private logcounts;
     run(stepscb?: (steps: Step[]) => void): Promise<void>;
 }
 declare type ResFunc = (value?: Promise<any>) => void;
@@ -87,6 +88,8 @@ declare abstract class Port {
     readonly name: string;
     readonly step: Step;
     protected state: State;
+    protected _count: number;
+    readonly count: number;
     readonly isinput: boolean;
     readonly isoutput: boolean;
     readonly isconnected: boolean;

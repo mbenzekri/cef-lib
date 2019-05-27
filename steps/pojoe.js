@@ -54,6 +54,7 @@ function paramfunc(type, strvalue) {
     return new Function('args', 'globs', 'params', 'pojo', 'type', body);
 }
 let DEBUG = false;
+let COUNT = false;
 const SOP = 'SOP'; // Start Of Pojos
 exports.SOP = SOP;
 const EOP = 'EOP'; // End Of Pojos
@@ -73,6 +74,7 @@ class Batch {
         this._args = {};
         this._flowchart = flowchart;
         DEBUG = process.argv.some((arg) => /^--DEBUG$/i.test(arg));
+        COUNT = process.argv.some((arg) => /^--COUNT$/i.test(arg));
         // !!! eviter de faire des action supplementaire ici sinon valider avec Testbed 
     }
     get flowchart() { return this._flowchart; }
@@ -187,8 +189,18 @@ class Batch {
             step.connect(outport, inport, (f) => f);
         });
     }
+    logcounts() {
+        const now = new Date();
+        this.steps.forEach(step => {
+            const inlog = step.inports.length ? `IN[ ${step.inports.map(port => port.name + '=' + port.count).join(' , ')} ]` : '';
+            const outlog = step.outports.length ? `OUT[ ${step.outports.map(port => port.name + '=' + port.count).join(' , ')} ]` : '';
+            console.log(`${now.toISOString()} : ${step.decl.gitid.split('/')[3]} ${inlog} ${outlog}`);
+        });
+    }
     run(stepscb) {
         return __awaiter(this, void 0, void 0, function* () {
+            let timeout;
+            COUNT && (timeout = setInterval(this.logcounts.bind(this), 5000));
             DEBUG && debug(this, `Starting batch => ${this._flowchart.title} @pid: ${process.pid}`);
             DEBUG && debug(this, `initialising arguments`);
             this.initargs();
@@ -210,6 +222,8 @@ class Batch {
                 promises.push(step.exec());
             }
             yield Promise.all(promises);
+            COUNT && clearInterval(timeout);
+            COUNT && this.logcounts();
         });
     }
 }
@@ -395,9 +409,11 @@ class Pipe {
 class Port {
     constructor(name, step) {
         this.state = types_1.State.idle;
+        this._count = 0;
         this.name = name;
         this.step = step;
     }
+    get count() { return this._count; }
     get isinput() { return false; }
     ;
     get isoutput() { return false; }
@@ -424,7 +440,7 @@ class OutputPort extends Port {
     put(pojo) {
         return __awaiter(this, void 0, void 0, function* () {
             this.setState(pojo);
-            yield this.pipe.push(this, pojo);
+            yield this.pipe.push(this, pojo).then(_ => pojo !== SOP && pojo !== EOP && this._count++).catch(e => Promise.reject(e));
         });
     }
 }
@@ -455,8 +471,10 @@ class InputPort extends Port {
                 if (!this.pipes[i].isdone(this)) {
                     pojo = yield this.pipes[i].pop(this);
                     this.setState(pojo);
-                    if (pojo !== EOP)
+                    if (pojo !== EOP) {
+                        this._count++;
                         return pojo;
+                    }
                 }
             }
             this.setState(pojo);

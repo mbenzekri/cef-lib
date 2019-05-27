@@ -52,6 +52,7 @@ function paramfunc(type: string, strvalue: string): Function {
 }
 
 let DEBUG = false;
+let COUNT = false;
 
 const SOP = 'SOP';  // Start Of Pojos
 const EOP = 'EOP';  // End Of Pojos
@@ -77,6 +78,7 @@ class Batch {
     constructor(flowchart: Flowchart) {
         this._flowchart = flowchart
         DEBUG = process.argv.some((arg) => /^--DEBUG$/i.test(arg))
+        COUNT = process.argv.some((arg) => /^--COUNT$/i.test(arg))
         // !!! eviter de faire des action supplementaire ici sinon valider avec Testbed 
     }
     get flowchart() { return this._flowchart }
@@ -193,8 +195,17 @@ class Batch {
             step.connect(outport, inport, (f: any) => f)
         })
     }
-
+    private logcounts() {
+        const now = new Date()
+        this.steps.forEach(step => {
+            const inlog = step.inports.length ? `IN[ ${step.inports.map(port => port.name+'='+port.count).join(' , ')} ]` : ''
+            const outlog = step.outports.length ? `OUT[ ${step.outports.map(port => port.name+'='+port.count).join(' , ')} ]` : ''
+            console.log(`${now.toISOString()} : ${step.decl.gitid.split('/')[3]} ${inlog} ${outlog}`)
+        })
+    }
     async run(stepscb?: (steps: Step[]) => void) {
+        let timeout: NodeJS.Timeout
+        COUNT && (timeout = setInterval(this.logcounts.bind(this) ,5000))
         DEBUG && debug(this, `Starting batch => ${this._flowchart.title} @pid: ${process.pid}`)
         DEBUG && debug(this, `initialising arguments`)
         this.initargs()
@@ -216,6 +227,8 @@ class Batch {
             promises.push(step.exec())
         }
         await Promise.all(promises)
+        COUNT && clearInterval(timeout)
+        COUNT && this.logcounts()
     }
 }
 
@@ -409,7 +422,9 @@ abstract class Port {
     readonly name: string;
     readonly step: Step;
     protected state: State = State.idle;
+    protected _count = 0
 
+    get count() { return this._count}
     get isinput(): boolean { return false };
     get isoutput(): boolean { return false };
     get isconnected(): boolean { return false };
@@ -433,7 +448,8 @@ class OutputPort extends Port {
     get isconnected() {return this.pipe.hasreaders} 
     async put(pojo: any) {
         this.setState(pojo)
-        await this.pipe.push(this, pojo)
+        await this.pipe.push(this, pojo).then(_ => pojo !== SOP && pojo !== EOP && this._count++).catch(e => Promise.reject(e))
+        
     }
 }
 
@@ -461,7 +477,10 @@ class InputPort extends Port {
             if (!this.pipes[i].isdone(this)) {
                 pojo = await this.pipes[i].pop(this)
                 this.setState(pojo)
-                if (pojo !== EOP) return pojo
+                if (pojo !== EOP) {
+                    this._count++
+                    return pojo
+                }
             }
         }
         this.setState(pojo)
