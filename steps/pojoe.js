@@ -240,12 +240,7 @@ class Pipe {
         return true;
     }
     get ended() { return this.writeended && this.readended; }
-    // get bytesread() {
-    //     let min = Number.MAX_SAFE_INTEGER
-    //     for (const [_, rstate] of this._readers) if (rstate.filepos < min) return min = rstate.filepos
-    //     return min
-    // }
-    // get byteswrite() { return this._written }
+    get hasreaders() { return this._readers.size > 0; }
     fwdread(rstate, bytes) {
         rstate.read++;
         rstate.filepos += bytes;
@@ -407,6 +402,8 @@ class Port {
     ;
     get isoutput() { return false; }
     ;
+    get isconnected() { return false; }
+    ;
     get isstarted() { return this.state === types_1.State.started; }
     get isended() { return this.state === types_1.State.ended; }
     get isidle() { return this.state === types_1.State.idle; }
@@ -423,6 +420,7 @@ class OutputPort extends Port {
         this.pipe = new Pipe();
     }
     get isoutput() { return true; }
+    get isconnected() { return this.pipe.hasreaders; }
     put(pojo) {
         return __awaiter(this, void 0, void 0, function* () {
             this.setState(pojo);
@@ -439,6 +437,7 @@ class InputPort extends Port {
     }
     get isinput() { return true; }
     ;
+    get isconnected() { return this.pipes.length > 0; }
     from(pipe) {
         pipe.addreader(this);
         this.pipes.push(pipe);
@@ -561,7 +560,7 @@ class Step {
     log(message) { console.log(message); }
     error(message) { error(this, message); }
     debug(message) { debug(this, message); }
-    inconnected(port) { return this._inports[port] ? true : false; }
+    inconnected(port) { return this._inports[port].isconnected ? true : false; }
     outconnected(port) { return this._outports[port] ? true : false; }
     /**
      * initialize dynamic step parameter access

@@ -61,6 +61,7 @@ declare class Pipe {
     readonly readended: boolean;
     readonly writeended: boolean;
     readonly ended: boolean;
+    readonly hasreaders: boolean;
     fwdread(rstate: RState, bytes: number): void;
     fwdwrite(wstate: WState, bytes: number): void;
     addreader(reader: InputPort): void;
@@ -88,6 +89,7 @@ declare abstract class Port {
     protected state: State;
     readonly isinput: boolean;
     readonly isoutput: boolean;
+    readonly isconnected: boolean;
     readonly isstarted: boolean;
     readonly isended: boolean;
     readonly isidle: boolean;
@@ -97,12 +99,14 @@ declare abstract class Port {
 declare class OutputPort extends Port {
     readonly pipe: Pipe;
     readonly isoutput: boolean;
+    readonly isconnected: boolean;
     put(pojo: any): Promise<void>;
 }
 declare class InputPort extends Port {
     private pipes;
     private _eopcnt;
     readonly isinput: boolean;
+    readonly isconnected: boolean;
     constructor(name: string, step: Step);
     from(pipe: Pipe): void;
     protected setState(pojo: any): void;

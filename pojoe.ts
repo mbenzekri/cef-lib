@@ -235,21 +235,16 @@ class Pipe {
     private _readers: Map<InputPort, RState> = new Map()
     private _writers: Map<OutputPort, WState> = new Map()
 
-    get readended() {
+    get readended(): boolean {
         for (const [_, rstate] of this._readers) if (!rstate.done) return false
         return true
     }
-    get writeended() {
+    get writeended(): boolean {
         for (const [_, wstate] of this._writers) if (!wstate.done) return false
         return true
     }
-    get ended() { return this.writeended && this.readended }
-    // get bytesread() {
-    //     let min = Number.MAX_SAFE_INTEGER
-    //     for (const [_, rstate] of this._readers) if (rstate.filepos < min) return min = rstate.filepos
-    //     return min
-    // }
-    // get byteswrite() { return this._written }
+    get ended(): boolean { return this.writeended && this.readended }
+    get hasreaders(): boolean { return this._readers.size > 0 }
 
     fwdread(rstate: RState, bytes: number): void {
         rstate.read++
@@ -417,6 +412,7 @@ abstract class Port {
 
     get isinput(): boolean { return false };
     get isoutput(): boolean { return false };
+    get isconnected(): boolean { return false };
     get isstarted() { return this.state === State.started }
     get isended() { return this.state === State.ended }
     get isidle() { return this.state === State.idle }
@@ -434,7 +430,7 @@ abstract class Port {
 class OutputPort extends Port {
     readonly pipe: Pipe = new Pipe()
     get isoutput(): boolean { return true }
-
+    get isconnected() {return this.pipe.hasreaders} 
     async put(pojo: any) {
         this.setState(pojo)
         await this.pipe.push(this, pojo)
@@ -445,6 +441,7 @@ class InputPort extends Port {
     private pipes: Pipe[] = []
     private _eopcnt = 0
     get isinput(): boolean { return true };
+    get isconnected() {return this.pipes.length > 0 } 
     constructor(name: string, step: Step) {
         super(name, step)
         this.state = State.started
@@ -573,7 +570,7 @@ abstract class Step {
     log(message: string) { console.log(message) }
     error(message: string) { error(this, message) }
     debug(message: string) { debug(this, message) }
-    inconnected(port: string): boolean { return this._inports[port] ? true : false }
+    inconnected(port: string): boolean { return this._inports[port].isconnected ? true : false }
     outconnected(port: string): boolean { return this._outports[port] ? true : false }
     /**
      * initialize dynamic step parameter access
