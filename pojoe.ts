@@ -235,25 +235,22 @@ class Batch {
 type ResFunc = (value?: Promise<any>) => void
 type RejFunc = (reason?: any) => void
 type RState = { filepos: number, read: number, done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFunc }
-type WState = { done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFunc }
+type WState = { fd: number, filepos: number, written: number,done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFunc }
 // async synchronisation beewteen a unique writer and multiple reader 
 // create a temporary file
 class Pipe {
     readonly tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`
-    readonly capacity = 10000
-    private _fd: number = -1
-    private _filepos: number = 0
-    private _written: number = 0
     private _towrite: number = 0
+    readonly capacity = 20000
     private _consumed = 0
     private _readers: Map<InputPort, RState> = new Map()
-    private _writer: WState = { done: false, waiting: false, resolve: null, reject: null }
+    private _writer: WState = { fd: -1, filepos: 0 , written: 0, done: false, waiting: false, resolve: null, reject: null }
 
     get readended(): boolean {
         for (const [_, rstate] of this._readers) if (!rstate.done) return false
         return true
     }
-    get writeended(): boolean { return this._writer.done && this._written >= this._towrite }
+    get writeended(): boolean { return this._writer.done && this._writer.written >= this._towrite }
     get ended(): boolean { return this.writeended && this.readended }
     get hasreaders(): boolean { return this._readers.size > 0 }
 
@@ -261,16 +258,16 @@ class Pipe {
         rstate.read++
         rstate.filepos += bytes;
         rstate.done = this.writeended && rstate.read >= this._towrite
-        if (this.ended) fs.closeSync(this._fd)
+        if (this.ended) fs.closeSync(this._writer.fd)
     }
     private fwdwrite(wstate: WState, bytes: number): void {
-        this._written++
-        this._filepos += bytes
+        this._writer.written++
+        this._writer.filepos += bytes
     }
 
     private open() {
         try {
-            if (this._fd === -1) this._fd = fs.openSync(this.tmpfile, 'a+')
+            if (this._writer.fd === -1) this._writer.fd = fs.openSync(this.tmpfile, 'a+')
         } catch (e) {
             error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to => \n    ${e.message}`)
         }
@@ -317,7 +314,7 @@ class Pipe {
         const len = `0000000000${jsonlen}`.slice(-10)
         const str = len + json + '\n'
         // we must write len+json in same call to avoid separate write due to concurrency
-        fs.write(this._fd, str, this._filepos, (err, bytes) => {
+        fs.write(this._writer.fd, str, this._writer.filepos, (err, bytes) => {
             if (err) return reject(new Error(`Pipe unable to write tempfile "${this.tmpfile}" due to  => \n    ${err.message}`))
 
             // return one capacity returned then release writer
@@ -334,7 +331,7 @@ class Pipe {
     private read(rstate: RState, resolve: ResFunc, reject: RejFunc) {
         const b = Buffer.alloc(10)
         let buf = Buffer.alloc(10000)
-        fs.read(this._fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
+        fs.read(this._writer.fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
             if (err) return reject(new Error(`Pipe unable to read size object from file "${this.tmpfile}" due to => \n    ${err.message}`))
 
             // length item read
@@ -342,7 +339,7 @@ class Pipe {
             buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf
 
             // item start read
-            fs.read(this._fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
+            fs.read(this._writer.fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
                 if (err) return reject(new Error(`Pipe unable to read data object from file "${this.tmpfile}" due to => \n    ${err.message}`))
                 // forward reader data is consumed
                 this.fwdread(rstate, bytes + 10)
@@ -384,7 +381,7 @@ class Pipe {
                 // case for no pojos ouputed (open followed by close)
                 rstate.done = true
                 return resolve(EOP)
-            } else if (rstate.read < this._written)
+            } else if (rstate.read < this._writer.written)
                 // reader have items to read go read
                 this.read(rstate, resolve, reject)
             else

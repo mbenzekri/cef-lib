@@ -36,11 +36,8 @@ declare class Batch {
 }
 declare class Pipe {
     readonly tmpfile: string;
-    readonly capacity = 10000;
-    private _fd;
-    private _filepos;
-    private _written;
     private _towrite;
+    readonly capacity = 20000;
     private _consumed;
     private _readers;
     private _writer;

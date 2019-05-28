@@ -233,14 +233,11 @@ exports.Batch = Batch;
 class Pipe {
     constructor() {
         this.tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`;
-        this.capacity = 10000;
-        this._fd = -1;
-        this._filepos = 0;
-        this._written = 0;
         this._towrite = 0;
+        this.capacity = 20000;
         this._consumed = 0;
         this._readers = new Map();
-        this._writer = { done: false, waiting: false, resolve: null, reject: null };
+        this._writer = { fd: -1, filepos: 0, written: 0, done: false, waiting: false, resolve: null, reject: null };
     }
     get readended() {
         for (const [_, rstate] of this._readers)
@@ -248,7 +245,7 @@ class Pipe {
                 return false;
         return true;
     }
-    get writeended() { return this._writer.done && this._written >= this._towrite; }
+    get writeended() { return this._writer.done && this._writer.written >= this._towrite; }
     get ended() { return this.writeended && this.readended; }
     get hasreaders() { return this._readers.size > 0; }
     fwdread(rstate, bytes) {
@@ -256,16 +253,16 @@ class Pipe {
         rstate.filepos += bytes;
         rstate.done = this.writeended && rstate.read >= this._towrite;
         if (this.ended)
-            fs.closeSync(this._fd);
+            fs.closeSync(this._writer.fd);
     }
     fwdwrite(wstate, bytes) {
-        this._written++;
-        this._filepos += bytes;
+        this._writer.written++;
+        this._writer.filepos += bytes;
     }
     open() {
         try {
-            if (this._fd === -1)
-                this._fd = fs.openSync(this.tmpfile, 'a+');
+            if (this._writer.fd === -1)
+                this._writer.fd = fs.openSync(this.tmpfile, 'a+');
         }
         catch (e) {
             error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to => \n    ${e.message}`);
@@ -308,7 +305,7 @@ class Pipe {
         const len = `0000000000${jsonlen}`.slice(-10);
         const str = len + json + '\n';
         // we must write len+json in same call to avoid separate write due to concurrency
-        fs.write(this._fd, str, this._filepos, (err, bytes) => {
+        fs.write(this._writer.fd, str, this._writer.filepos, (err, bytes) => {
             if (err)
                 return reject(new Error(`Pipe unable to write tempfile "${this.tmpfile}" due to  => \n    ${err.message}`));
             // return one capacity returned then release writer
@@ -323,14 +320,14 @@ class Pipe {
     read(rstate, resolve, reject) {
         const b = Buffer.alloc(10);
         let buf = Buffer.alloc(10000);
-        fs.read(this._fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
+        fs.read(this._writer.fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
             if (err)
                 return reject(new Error(`Pipe unable to read size object from file "${this.tmpfile}" due to => \n    ${err.message}`));
             // length item read
             const jsonlen = parseInt(b.toString('utf8'), 10);
             buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
             // item start read
-            fs.read(this._fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
+            fs.read(this._writer.fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
                 if (err)
                     return reject(new Error(`Pipe unable to read data object from file "${this.tmpfile}" due to => \n    ${err.message}`));
                 // forward reader data is consumed
@@ -371,7 +368,7 @@ class Pipe {
                     rstate.done = true;
                     return resolve(EOP);
                 }
-                else if (rstate.read < this._written)
+                else if (rstate.read < this._writer.written)
                     // reader have items to read go read
                     this.read(rstate, resolve, reject);
                 else
