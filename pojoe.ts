@@ -74,6 +74,8 @@ class Batch {
     private _steps = new Map<string, Step>()
     private _globs: any = {}
     private _args: any = {}
+    private _startdate: Date
+    private _enddate: Date
 
     constructor(flowchart: Flowchart) {
         this._flowchart = flowchart
@@ -81,6 +83,8 @@ class Batch {
         COUNT = process.argv.some((arg) => /^--COUNT$/i.test(arg))
         // !!! eviter de faire des action supplementaire ici sinon valider avec Testbed 
     }
+    get startdate() { return this._startdate }
+    get enddate() { return this._enddate }
     get flowchart() { return this._flowchart }
     get steps() { return this._steps }
     get globs() { return this._globs }
@@ -195,17 +199,23 @@ class Batch {
             step.connect(outport, inport, (f: any) => f)
         })
     }
-    private logcounts() {
+    private logcounts(timed = false) {
         const now = new Date()
+        let duration:number
+        timed && (duration = Math.floor(this.enddate.getTime()/1000 - this.startdate.getTime()/1000))
+        timed && console.log(`--- ${this.flowchart.title} -------------------------------------------------`)
+        timed && console.log(`duration: ${duration} sec. start:${this.startdate.toISOString()} end:${this.enddate.toISOString()}` )
         this.steps.forEach(step => {
             const inlog = step.inports.length ? `IN[ ${step.inports.map(port => port.name+'='+port.count).join(' , ')} ]` : ''
             const outlog = step.outports.length ? `OUT[ ${step.outports.map(port => port.name+'='+port.count).join(' , ')} ]` : ''
             console.log(`${now.toISOString()} : ${step.decl.gitid.split('/')[3]} ${inlog} ${outlog}`)
         })
+        timed && console.log(`--- ${this.flowchart.title} -------------------------------------------------`)
     }
     async run(stepscb?: (steps: Step[]) => void) {
         let timeout: NodeJS.Timeout
-        COUNT && (timeout = setInterval(this.logcounts.bind(this) ,5000))
+        this._startdate = new Date()
+        COUNT && (timeout = setInterval(this.logcounts.bind(this) ,10000))
         DEBUG && debug(this, `Starting batch => ${this._flowchart.title} @pid: ${process.pid}`)
         DEBUG && debug(this, `initialising arguments`)
         this.initargs()
@@ -213,7 +223,6 @@ class Batch {
         this.initglobs()
         DEBUG && debug(this, `initialising steps`)
         this.initsteps()
-        Object.freeze(this)
 
         const steps = Array.from(this._steps.values())
         try {
@@ -227,8 +236,9 @@ class Batch {
             promises.push(step.exec())
         }
         await Promise.all(promises)
+        this._enddate = new Date()
         COUNT && clearInterval(timeout)
-        COUNT && this.logcounts()
+        this.logcounts(true)
     }
 }
 
@@ -499,6 +509,9 @@ class InputPort extends Port {
 
 abstract class Step {
 
+    private _startdate: Date
+    private _enddate: Date
+
     static register(aclass: TypeStep) {
         REGISTRY[aclass.declaration.gitid] = aclass
     }
@@ -565,6 +578,8 @@ abstract class Step {
         this._params = params;
     }
     get pojo() { return this.pojo }
+    get startdate() { return this._startdate }
+    get enddate() { return this._enddate }
     get type() { return this.decl.gitid }
     get paramlist() { return Object.keys(this.decl.parameters) }
     get params(): any { return this._params }
@@ -675,6 +690,7 @@ abstract class Step {
     }
 
     async exec() {
+        this._startdate = new Date()
         DEBUG && debug(this, `init phase `)
         await this.init()
         DEBUG && debug(this, `start phase `)
@@ -687,6 +703,7 @@ abstract class Step {
         await this.end()
         DEBUG && debug(this, `terminate phase `)
         await this.terminate()
+        this._enddate = new Date()
     }
 }
 

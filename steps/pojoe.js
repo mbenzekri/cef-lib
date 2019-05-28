@@ -77,6 +77,8 @@ class Batch {
         COUNT = process.argv.some((arg) => /^--COUNT$/i.test(arg));
         // !!! eviter de faire des action supplementaire ici sinon valider avec Testbed 
     }
+    get startdate() { return this._startdate; }
+    get enddate() { return this._enddate; }
     get flowchart() { return this._flowchart; }
     get steps() { return this._steps; }
     get globs() { return this._globs; }
@@ -189,18 +191,24 @@ class Batch {
             step.connect(outport, inport, (f) => f);
         });
     }
-    logcounts() {
+    logcounts(timed = false) {
         const now = new Date();
+        let duration;
+        timed && (duration = Math.floor(this.enddate.getTime() / 1000 - this.startdate.getTime() / 1000));
+        timed && console.log(`--- ${this.flowchart.title} -------------------------------------------------`);
+        timed && console.log(`duration: ${duration} sec. start:${this.startdate.toISOString()} end:${this.enddate.toISOString()}`);
         this.steps.forEach(step => {
             const inlog = step.inports.length ? `IN[ ${step.inports.map(port => port.name + '=' + port.count).join(' , ')} ]` : '';
             const outlog = step.outports.length ? `OUT[ ${step.outports.map(port => port.name + '=' + port.count).join(' , ')} ]` : '';
             console.log(`${now.toISOString()} : ${step.decl.gitid.split('/')[3]} ${inlog} ${outlog}`);
         });
+        timed && console.log(`--- ${this.flowchart.title} -------------------------------------------------`);
     }
     run(stepscb) {
         return __awaiter(this, void 0, void 0, function* () {
             let timeout;
-            COUNT && (timeout = setInterval(this.logcounts.bind(this), 5000));
+            this._startdate = new Date();
+            COUNT && (timeout = setInterval(this.logcounts.bind(this), 10000));
             DEBUG && debug(this, `Starting batch => ${this._flowchart.title} @pid: ${process.pid}`);
             DEBUG && debug(this, `initialising arguments`);
             this.initargs();
@@ -208,7 +216,6 @@ class Batch {
             this.initglobs();
             DEBUG && debug(this, `initialising steps`);
             this.initsteps();
-            Object.freeze(this);
             const steps = Array.from(this._steps.values());
             try {
                 stepscb && stepscb(steps);
@@ -222,8 +229,9 @@ class Batch {
                 promises.push(step.exec());
             }
             yield Promise.all(promises);
+            this._enddate = new Date();
             COUNT && clearInterval(timeout);
-            COUNT && this.logcounts();
+            this.logcounts(true);
         });
     }
 }
@@ -559,6 +567,8 @@ class Step {
         });
     }
     get pojo() { return this.pojo; }
+    get startdate() { return this._startdate; }
+    get enddate() { return this._enddate; }
     get type() { return this.decl.gitid; }
     get paramlist() { return Object.keys(this.decl.parameters); }
     get params() { return this._params; }
@@ -675,6 +685,7 @@ class Step {
     }
     exec() {
         return __awaiter(this, void 0, void 0, function* () {
+            this._startdate = new Date();
             DEBUG && debug(this, `init phase `);
             yield this.init();
             DEBUG && debug(this, `start phase `);
@@ -687,6 +698,7 @@ class Step {
             yield this.end();
             DEBUG && debug(this, `terminate phase `);
             yield this.terminate();
+            this._enddate = new Date();
         });
     }
 }

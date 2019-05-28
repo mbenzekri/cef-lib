@@ -17,7 +17,11 @@ declare class Batch {
     private _steps;
     private _globs;
     private _args;
+    private _startdate;
+    private _enddate;
     constructor(flowchart: Flowchart);
+    readonly startdate: Date;
+    readonly enddate: Date;
     readonly flowchart: Flowchart;
     readonly steps: Map<string, Step>;
     readonly globs: any;
@@ -110,6 +114,8 @@ declare class InputPort extends Port {
  * @property params : parameters (dynamic see Proxy in constructor)
  */
 declare abstract class Step {
+    private _startdate;
+    private _enddate;
     static register(aclass: TypeStep): void;
     static getstep(stepid: string): TypeStep;
     protected readonly locals: {
@@ -151,6 +157,8 @@ declare abstract class Step {
      */
     protected constructor(decl: Declaration, params: ParamsMap);
     readonly pojo: any;
+    readonly startdate: Date;
+    readonly enddate: Date;
     readonly type: string;
     readonly paramlist: string[];
     readonly params: any;
