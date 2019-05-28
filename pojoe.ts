@@ -338,7 +338,7 @@ class Pipe {
         })
     }
 
-    private read(rstate: RState, resolve: ResFunc, reject: RejFunc) {
+    private read(rstate: RState, resolve: ResFunc, reject: RejFunc,count:number) {
         const b = Buffer.alloc(10)
         let buf = Buffer.alloc(10000)
         fs.read(this._writer.fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
@@ -384,16 +384,18 @@ class Pipe {
     async pop(reader: InputPort): Promise<any> {
         const rstate = this._readers.get(reader)
         // reader terminated return EOP (End Of Pojos) 
-        if (rstate.done) return Promise.resolve(EOP)
+        if (rstate.done) return EOP
+        if (rstate.read == this._towrite && this.writeended) {
+            // case for no pojos ouputed (open followed by close)
+            rstate.done = true
+            return EOP
+        }
+        
         return rstate && new Promise((resolve, reject) => {
             // data ready ?
-            if (rstate.read == this._towrite && this.writeended) {
-                // case for no pojos ouputed (open followed by close)
-                rstate.done = true
-                return resolve(EOP)
-            } else if (rstate.read < this._writer.written)
+            if (rstate.read < this._writer.written)
                 // reader have items to read go read
-                this.read(rstate, resolve, reject)
+                this.read(rstate, resolve, reject,Math.min(this._writer.written-rstate.read,this.capacity))
             else
                 // wait for new data that will be ready after a write termination
                 this.awaitreader(reader, resolve, reject)
@@ -401,11 +403,10 @@ class Pipe {
     }
 
     async push(item: any): Promise<any> {
-        if (item === SOP) { this.open();  return Promise.resolve(); }
-        if (item === EOP) { this.close(); return Promise.resolve(); }
+        if (item === SOP) { this.open();  return; }
+        if (item === EOP) { this.close(); return; }
         this._towrite++
         return new Promise((resolve, reject) => {
-
             // free capacity ?
             if (this._consumed < this.capacity) 
                 // enough capacity go write
