@@ -240,7 +240,7 @@ type WState = { done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFu
 // create a temporary file
 class Pipe {
     readonly tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`
-    readonly capacity = 10
+    readonly capacity = 10000
     private _fd: number = -1
     private _filepos: number = 0
     private _written: number = 0
@@ -398,9 +398,6 @@ class Pipe {
         if (item === EOP) { this.close(); return Promise.resolve(); }
         this._towrite++
         return new Promise((resolve, reject) => {
-
-            // writer terminated nothing to do
-            /// NO WRITER is finished when _written == _towrite if (this._writer.done) return resolve()
 
             // free capacity ?
             if (this._consumed < this.capacity) 

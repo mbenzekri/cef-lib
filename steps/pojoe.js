@@ -233,7 +233,7 @@ exports.Batch = Batch;
 class Pipe {
     constructor() {
         this.tmpfile = `${os.tmpdir()}/tmp-${uuid()}.jsons`;
-        this.capacity = 10;
+        this.capacity = 10000;
         this._fd = -1;
         this._filepos = 0;
         this._written = 0;
@@ -392,8 +392,6 @@ class Pipe {
             }
             this._towrite++;
             return new Promise((resolve, reject) => {
-                // writer terminated nothing to do
-                /// NO WRITER is finished when _written == _towrite if (this._writer.done) return resolve()
                 // free capacity ?
                 if (this._consumed < this.capacity)
                     // enough capacity go write
