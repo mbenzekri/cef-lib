@@ -821,6 +821,7 @@ class Testbed extends Batch {
             const fgred = "\x1b[31m";
             const fggreen = "\x1b[32m";
             const reset = "\x1b[0m";
+            const results = [];
             for (let i = 0; i < tests.length; i++) {
                 try {
                     const testcase = tests[i];
@@ -832,13 +833,14 @@ class Testbed extends Batch {
                         tested && testcase.onstart && testcase.onstart(tested);
                     });
                     tested && testcase.onend && testcase.onend(tested);
-                    console.log(`${fggreen}SUCCESS: test ${tests[i].title}${reset}`);
+                    results.push(`${fggreen}SUCCESS: test ${tests[i].title}${reset}`);
                 }
                 catch (e) {
-                    console.error(`${fgred}FAILURE: test ${tests[i].title} due to => \n    ${e.message}${reset}`);
+                    results.push(`${fgred}FAILURE: test ${tests[i].title} due to => \n    ${e.message}${reset}`);
                 }
             }
             DEBUG = false;
+            results.forEach(result => console.log(result));
         });
     }
 }
