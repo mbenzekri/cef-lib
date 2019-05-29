@@ -246,6 +246,8 @@ class Pipe {
         this._consumed = 0;
         this._readers = new Map();
         this._writer = { fd: -1, filepos: 0, written: 0, done: false, waiting: false, resolve: null, reject: null };
+        this._lasts = [];
+        this._fifo = [];
     }
     get readended() {
         for (const [_, rstate] of this._readers)
@@ -300,16 +302,13 @@ class Pipe {
             this._writer.reject = null;
         }
     }
-    write(wstate, item, resolve, reject) {
+    write(wstate, pojo, resolve, reject) {
         // one capacity consumed
         this._consumed++;
         // calculating json string and size to write
-        const json = JSON.stringify(item);
-        const jsonlen = Buffer.byteLength(json) + 1;
-        const len = `0000000000${jsonlen}`.slice(-10);
-        const str = len + json + '\n';
+        const json = JSON.stringify(pojo) + '\n';
         // we must write len+json in same call to avoid separate write due to concurrency
-        fs.write(this._writer.fd, str, this._writer.filepos, (err, bytes) => {
+        fs.write(this._writer.fd, json, this._writer.filepos, (err, bytes) => {
             if (err)
                 return reject(new Error(`Pipe unable to write tempfile "${this.tmpfile}" due to  => \n    ${err.message}`));
             // return one capacity returned then release writer
@@ -321,25 +320,36 @@ class Pipe {
             resolve();
         });
     }
-    read(rstate, resolve, reject, count) {
-        const b = Buffer.alloc(10);
+    read(rstate, resolve, reject) {
         let buf = Buffer.alloc(10000);
-        fs.read(rstate.fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
+        if (this._fifo.length > 0) {
+            // extract item from fifo
+            const pojo = JSON.parse(this._fifo.shift());
+            // forward reader data is consumed
+            rstate.read++;
+            rstate.done = this.writeended && rstate.read >= this._towrite;
+            if (this.ended)
+                fs.closeSync(this._writer.fd);
+            return resolve(pojo);
+        }
+        fs.read(rstate.fd, buf, 0, buf.byteLength, rstate.filepos, (err, bytes) => {
             if (err)
                 return reject(new Error(`Pipe unable to read size object from file "${this.tmpfile}" due to => \n    ${err.message}`));
-            // length item read
-            const jsonlen = parseInt(b.toString('utf8'), 10);
-            buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
-            // item start read
-            fs.read(rstate.fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
-                if (err)
-                    return reject(new Error(`Pipe unable to read data object from file "${this.tmpfile}" due to => \n    ${err.message}`));
-                // forward reader data is consumed
-                this.fwdread(rstate, bytes + 10);
-                // extract item from buffer
-                const item = JSON.parse(buf.toString('utf8', 0, jsonlen));
-                resolve(item);
+            rstate.filepos += bytes;
+            let start = 0;
+            buf.forEach((byte, end) => {
+                if (byte === 10) {
+                    this._lasts.push(buf.toString('utf8', start, end));
+                    const line = this._lasts.join('');
+                    this._fifo.push(line);
+                    start = end + 1;
+                    this._lasts = [];
+                }
             });
+            if (start <= bytes)
+                this._lasts.push(buf.toString('utf8', start, bytes));
+            // continue reading
+            this.read(rstate, resolve, reject);
         });
     }
     awaitreader(reader, resolve, reject) {
@@ -374,7 +384,7 @@ class Pipe {
                 // data ready ?
                 if (rstate.read < this._writer.written)
                     // reader have items to read go read
-                    this.read(rstate, resolve, reject, Math.min(this._writer.written - rstate.read, this.capacity));
+                    this.read(rstate, resolve, reject);
                 else
                     // wait for new data that will be ready after a write termination
                     this.awaitreader(reader, resolve, reject);
