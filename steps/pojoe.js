@@ -321,7 +321,7 @@ class Pipe {
         });
     }
     read(rstate, resolve, reject) {
-        let buf = Buffer.alloc(10000);
+        let buf = Buffer.alloc(100000);
         if (this._fifo.length > 0) {
             // extract item from fifo
             const pojo = JSON.parse(this._fifo.shift());
