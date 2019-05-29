@@ -269,16 +269,12 @@ class Pipe {
     }
     open() {
         try {
-            if (this._writer.fd === -1)
-                this._writer.fd = fs.openSync(this.tmpfile, 'a+');
+            (this._writer.fd === -1) && (this._writer.fd = fs.openSync(this.tmpfile, 'w'));
+            this._readers.forEach(reader => (reader.fd === -1) && (reader.fd = fs.openSync(this.tmpfile, 'r')));
         }
         catch (e) {
             error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to => \n    ${e.message}`);
         }
-        this._writer.done = false;
-        this._writer.waiting = false;
-        this._writer.resolve = null;
-        this._writer.reject = null;
     }
     close() {
         this._writer.done = true;
@@ -328,14 +324,14 @@ class Pipe {
     read(rstate, resolve, reject, count) {
         const b = Buffer.alloc(10);
         let buf = Buffer.alloc(10000);
-        fs.read(this._writer.fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
+        fs.read(rstate.fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
             if (err)
                 return reject(new Error(`Pipe unable to read size object from file "${this.tmpfile}" due to => \n    ${err.message}`));
             // length item read
             const jsonlen = parseInt(b.toString('utf8'), 10);
             buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf;
             // item start read
-            fs.read(this._writer.fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
+            fs.read(rstate.fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
                 if (err)
                     return reject(new Error(`Pipe unable to read data object from file "${this.tmpfile}" due to => \n    ${err.message}`));
                 // forward reader data is consumed
@@ -358,7 +354,7 @@ class Pipe {
         this._writer.reject = reject;
     }
     addreader(reader) {
-        this._readers.set(reader, { filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null });
+        this._readers.set(reader, { fd: -1, filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null });
     }
     isdone(port) {
         return this._readers.get(port).done;

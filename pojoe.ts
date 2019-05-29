@@ -244,7 +244,7 @@ class Batch {
 
 type ResFunc = (value?: Promise<any>) => void
 type RejFunc = (reason?: any) => void
-type RState = { filepos: number, read: number, done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFunc }
+type RState = { fd: number, filepos: number, read: number, done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFunc }
 type WState = { fd: number, filepos: number, written: number,done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFunc }
 // async synchronisation beewteen a unique writer and multiple reader 
 // create a temporary file
@@ -277,14 +277,11 @@ class Pipe {
 
     private open() {
         try {
-            if (this._writer.fd === -1) this._writer.fd = fs.openSync(this.tmpfile, 'a+')
+            (this._writer.fd === -1) && (this._writer.fd = fs.openSync(this.tmpfile, 'w'))
+            this._readers.forEach(reader => (reader.fd === -1) && (reader.fd = fs.openSync(this.tmpfile, 'r')))
         } catch (e) {
             error('Pipe', `unable to open for read/write tempfile "${this.tmpfile}" due to => \n    ${e.message}`)
         }
-        this._writer.done = false
-        this._writer.waiting = false
-        this._writer.resolve = null
-        this._writer.reject = null
     }
 
     private close() {
@@ -341,7 +338,7 @@ class Pipe {
     private read(rstate: RState, resolve: ResFunc, reject: RejFunc,count:number) {
         const b = Buffer.alloc(10)
         let buf = Buffer.alloc(10000)
-        fs.read(this._writer.fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
+        fs.read(rstate.fd, b, 0, b.byteLength, rstate.filepos, (err, bytes) => {
             if (err) return reject(new Error(`Pipe unable to read size object from file "${this.tmpfile}" due to => \n    ${err.message}`))
 
             // length item read
@@ -349,7 +346,7 @@ class Pipe {
             buf = (buf.byteLength < jsonlen) ? Buffer.alloc(jsonlen) : buf
 
             // item start read
-            fs.read(this._writer.fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
+            fs.read(rstate.fd, buf, 0, jsonlen, rstate.filepos + 10, (err, bytes) => {
                 if (err) return reject(new Error(`Pipe unable to read data object from file "${this.tmpfile}" due to => \n    ${err.message}`))
                 // forward reader data is consumed
                 this.fwdread(rstate, bytes + 10)
@@ -375,7 +372,7 @@ class Pipe {
     }
 
     addreader(reader: InputPort) {
-        this._readers.set(reader, { filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null })
+        this._readers.set(reader, { fd: -1, filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null })
     }
     isdone(port: InputPort) {
         return  this._readers.get(port).done
