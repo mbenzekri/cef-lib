@@ -246,8 +246,6 @@ class Pipe {
         this._consumed = 0;
         this._readers = new Map();
         this._writer = { fd: -1, filepos: 0, written: 0, done: false, waiting: false, resolve: null, reject: null };
-        this._lasts = [];
-        this._fifo = [];
     }
     get readended() {
         for (const [_, rstate] of this._readers)
@@ -258,13 +256,12 @@ class Pipe {
     get writeended() { return this._writer.done && this._writer.written >= this._towrite; }
     get ended() { return this.writeended && this.readended; }
     get hasreaders() { return this._readers.size > 0; }
-    fwdread(rstate, bytes) {
-        rstate.read++;
-        rstate.filepos += bytes;
-        rstate.done = this.writeended && rstate.read >= this._towrite;
-        if (this.ended)
-            fs.closeSync(this._writer.fd);
-    }
+    // private fwdread(rstate: RState, bytes: number): void {
+    //     rstate.read++
+    //     rstate.filepos += bytes;
+    //     rstate.done = this.writeended && rstate.read >= this._towrite
+    //     if (this.ended) fs.closeSync(this._writer.fd)
+    // }
     fwdwrite(wstate, bytes) {
         this._writer.written++;
         this._writer.filepos += bytes;
@@ -322,12 +319,10 @@ class Pipe {
     }
     read(rstate, resolve, reject) {
         let buf = Buffer.alloc(100000);
-        if (this._fifo.length > 0) {
+        if (rstate.fifo.length > 0) {
             // extract item from fifo
-            const pojo = JSON.parse(this._fifo.shift());
-            // forward reader data is consumed
-            rstate.read++;
-            rstate.done = this.writeended && rstate.read >= this._towrite;
+            const pojo = JSON.parse(rstate.fifo.shift());
+            rstate.done = this.writeended && (rstate.fifo.length === 0) && (rstate.read >= this._towrite);
             if (this.ended)
                 fs.closeSync(this._writer.fd);
             return resolve(pojo);
@@ -339,16 +334,18 @@ class Pipe {
             let start = 0;
             buf.forEach((byte, end) => {
                 if (byte === 10) {
-                    this._lasts.push(buf.toString('utf8', start, end));
-                    const line = this._lasts.join('');
-                    this._fifo.push(line);
+                    rstate.lasts.push(buf.slice(start, end));
+                    const line = Buffer.concat(rstate.lasts).toString('utf8');
+                    rstate.fifo.push(line);
+                    // forward reader data is consumed
+                    rstate.read++;
                     start = end + 1;
-                    this._lasts = [];
+                    rstate.lasts = [];
                 }
             });
-            if (start <= bytes)
-                this._lasts.push(buf.toString('utf8', start, bytes));
-            // continue reading
+            if (start <= bytes && bytes > 0)
+                rstate.lasts.push(buf.slice(start, bytes));
+            // continue reading until pojo pushed on fifo
             this.read(rstate, resolve, reject);
         });
     }
@@ -364,7 +361,7 @@ class Pipe {
         this._writer.reject = reject;
     }
     addreader(reader) {
-        this._readers.set(reader, { fd: -1, filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null });
+        this._readers.set(reader, { fd: -1, filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null, fifo: [], lasts: [] });
     }
     isdone(port) {
         return this._readers.get(port).done;
@@ -373,16 +370,12 @@ class Pipe {
         return __awaiter(this, void 0, void 0, function* () {
             const rstate = this._readers.get(reader);
             // reader terminated return EOP (End Of Pojos) 
+            rstate.done = this.writeended && (rstate.fifo.length === 0) && (rstate.read >= this._towrite);
             if (rstate.done)
-                return EOP;
-            if (rstate.read == this._towrite && this.writeended) {
-                // case for no pojos ouputed (open followed by close)
-                rstate.done = true;
-                return EOP;
-            }
+                return Promise.resolve(EOP);
             return rstate && new Promise((resolve, reject) => {
-                // data ready ?
-                if (rstate.read < this._writer.written)
+                if ((this.writeended && this._towrite <= this._writer.written) // go on with reading no more awaitings
+                    || (rstate.read < this._writer.written)) // data ready ?
                     // reader have items to read go read
                     this.read(rstate, resolve, reject);
                 else

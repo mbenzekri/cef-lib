@@ -244,7 +244,7 @@ class Batch {
 
 type ResFunc = (value?: any | Promise<any>) => void
 type RejFunc = (reason?: any) => void
-type RState = { fd: number, filepos: number, read: number, done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFunc }
+type RState = { fd: number, filepos: number, read: number, done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFunc, lasts: Buffer[], fifo: string[]}
 type WState = { fd: number, filepos: number, written: number,done: boolean, waiting: boolean, resolve: ResFunc, reject: RejFunc }
 // async synchronisation beewteen a unique writer and multiple reader 
 // create a temporary file
@@ -255,8 +255,6 @@ class Pipe {
     private _consumed = 0
     private _readers: Map<InputPort, RState> = new Map()
     private _writer: WState = { fd: -1, filepos: 0 , written: 0, done: false, waiting: false, resolve: null, reject: null }
-    private _lasts: string[] = []
-    private _fifo: string[] = []
 
     get readended(): boolean {
         for (const [_, rstate] of this._readers) if (!rstate.done) return false
@@ -266,12 +264,12 @@ class Pipe {
     get ended(): boolean { return this.writeended && this.readended }
     get hasreaders(): boolean { return this._readers.size > 0 }
 
-    private fwdread(rstate: RState, bytes: number): void {
-        rstate.read++
-        rstate.filepos += bytes;
-        rstate.done = this.writeended && rstate.read >= this._towrite
-        if (this.ended) fs.closeSync(this._writer.fd)
-    }
+    // private fwdread(rstate: RState, bytes: number): void {
+    //     rstate.read++
+    //     rstate.filepos += bytes;
+    //     rstate.done = this.writeended && rstate.read >= this._towrite
+    //     if (this.ended) fs.closeSync(this._writer.fd)
+    // }
     private fwdwrite(wstate: WState, bytes: number): void {
         this._writer.written++
         this._writer.filepos += bytes
@@ -336,12 +334,10 @@ class Pipe {
 
     private read(rstate: RState, resolve: ResFunc, reject: RejFunc) {
         let buf = Buffer.alloc(100000)
-        if (this._fifo.length > 0) {
+        if (rstate.fifo.length > 0) {
             // extract item from fifo
-            const pojo = JSON.parse(this._fifo.shift())
-            // forward reader data is consumed
-            rstate.read++
-            rstate.done = this.writeended && rstate.read >= this._towrite
+            const pojo = JSON.parse(rstate.fifo.shift())
+            rstate.done = this.writeended && (rstate.fifo.length === 0) && (rstate.read >= this._towrite)
             if (this.ended) fs.closeSync(this._writer.fd)
             return resolve(pojo)
         }
@@ -351,15 +347,17 @@ class Pipe {
             let start = 0
             buf.forEach( (byte,end)=> {
                 if (byte === 10) {
-                    this._lasts.push(buf.toString('utf8',start,end))
-                    const line = this._lasts.join('') 
-                    this._fifo.push(line)
+                    rstate.lasts.push(buf.slice(start,end))
+                    const line = Buffer.concat(rstate.lasts).toString('utf8') 
+                    rstate.fifo.push(line)
+                    // forward reader data is consumed
+                    rstate.read++
                     start = end + 1
-                    this._lasts = []
-                } 
+                    rstate.lasts = []
+                }
             })
-            if (start <= bytes) this._lasts.push(buf.toString('utf8',start,bytes))
-            // continue reading
+            if (start <= bytes && bytes > 0) rstate.lasts.push(buf.slice(start,bytes))
+            // continue reading until pojo pushed on fifo
             this.read(rstate,resolve,reject)
         })
     }
@@ -378,7 +376,7 @@ class Pipe {
     }
 
     addreader(reader: InputPort) {
-        this._readers.set(reader, { fd: -1, filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null })
+        this._readers.set(reader, { fd: -1, filepos: 0, read: 0, done: false, waiting: false, resolve: null, reject: null, fifo: [], lasts: [] })
     }
     isdone(port: InputPort) {
         return  this._readers.get(port).done
@@ -387,16 +385,11 @@ class Pipe {
     async pop(reader: InputPort): Promise<any> {
         const rstate = this._readers.get(reader)
         // reader terminated return EOP (End Of Pojos) 
-        if (rstate.done) return EOP
-        if (rstate.read == this._towrite && this.writeended) {
-            // case for no pojos ouputed (open followed by close)
-            rstate.done = true
-            return EOP
-        }
-        
+        rstate.done = this.writeended && (rstate.fifo.length === 0) && (rstate.read >= this._towrite)
+        if (rstate.done) return Promise.resolve(EOP)        
         return rstate && new Promise((resolve, reject) => {
-            // data ready ?
-            if (rstate.read < this._writer.written)
+            if ((this.writeended && this._towrite <= this._writer.written) // go on with reading no more awaitings
+                || (rstate.read < this._writer.written)) // data ready ?
                 // reader have items to read go read
                 this.read(rstate, resolve, reject)
             else

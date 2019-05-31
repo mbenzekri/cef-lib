@@ -145,7 +145,7 @@ export declare const urlType: ParamType<Url>;
 export declare class Path extends String {
     readonly dirname: Path;
     readonly extname: string;
-    readonly clean: string;
+    readonly pathnormalize: string;
     readonly sep: "\\" | "/";
     readonly delimiter: ";" | ":";
     readonly basename: string;

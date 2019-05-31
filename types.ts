@@ -176,14 +176,14 @@ export const urlType: ParamType<Url> = {
 export class Path extends String {
     get dirname() { return new Path(path.dirname(this.toString())) }
     get extname() { return path.extname(this.toString()) }
-    get clean() { return path.normalize(this.toString()) }
+    get pathnormalize() { return path.normalize(this.toString()) }
     get sep() { return path.sep }
     get delimiter() { return path.delimiter }
     get basename() { return path.basename(this.toString()) }
-    get exists() { return fs.existsSync(this.clean) }
+    get exists() { return fs.existsSync(this.pathnormalize) }
     get isAbsolute() { return path.isAbsolute(this.toString()) }
-    get isDirectory() { return fs.existsSync(this.clean) && fs.statSync(this.clean).isDirectory }
-    get isFile() { return fs.existsSync(this.clean) && fs.statSync(this.clean).isFile }
+    get isDirectory() { return fs.existsSync(this.pathnormalize) && fs.statSync(this.pathnormalize).isDirectory }
+    get isFile() { return fs.existsSync(this.pathnormalize) && fs.statSync(this.pathnormalize).isFile }
 }
 export const pathType: ParamType<Path> = {
     typename: 'path',

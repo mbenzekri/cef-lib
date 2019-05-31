@@ -45,13 +45,10 @@ declare class Pipe {
     private _consumed;
     private _readers;
     private _writer;
-    private _lasts;
-    private _fifo;
     readonly readended: boolean;
     readonly writeended: boolean;
     readonly ended: boolean;
     readonly hasreaders: boolean;
-    private fwdread;
     private fwdwrite;
     private open;
     private close;
