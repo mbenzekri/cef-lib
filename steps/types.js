@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("path");
 const url = require("url");
 const fs = require("fs");
+const crypto = require("crypto");
 var PortType;
 (function (PortType) {
     PortType[PortType["input"] = 0] = "input";
@@ -153,34 +154,19 @@ const PARAMTYPES = {
 };
 function equals(expected, outputed) {
     let result = true;
-    if (Array.isArray(expected) && Array.isArray(expected)) {
-        if (expected.length !== outputed.length)
-            return false;
-        result = expected.every((v, i) => equals(v, outputed[i]));
-    }
-    else if (expected instanceof Url && outputed instanceof Url) {
-        result = expected.toString() === outputed.toString();
-    }
-    else if (expected instanceof Path && outputed instanceof Path) {
-        result = expected.toString() === outputed.toString();
-    }
-    else if (expected instanceof Date && outputed instanceof Date) {
-        result = expected.toString() === outputed.toString();
-    }
-    else if (expected instanceof RegExp && outputed instanceof RegExp) {
-        result = expected.toString() === outputed.toString();
-    }
-    else if (expected instanceof Object && outputed instanceof Object) {
-        if (Object.keys(expected).length !== Object.keys(outputed).length)
-            return false;
-        result = Object.keys(expected).every(property => equals(expected[property], outputed[property]));
-    }
-    else {
-        result = outputed === expected;
-    }
+    const hexpected = expected.map(v => md5(v)).sort();
+    const houtputed = outputed.map(v => md5(v)).sort();
+    if (hexpected.length !== houtputed.length)
+        return false;
+    result = hexpected.every((v, i) => v === houtputed[i]);
     return result;
 }
 exports.equals = equals;
+function md5(value) {
+    const str = JSON.stringify(value);
+    let hash = crypto.createHash('md5').update(str).digest("hex");
+    return hash;
+}
 function gettype(typename) {
     return PARAMTYPES[typename];
 }

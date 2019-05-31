@@ -155,6 +155,6 @@ export declare class Path extends String {
     readonly isFile: () => boolean;
 }
 export declare const pathType: ParamType<Path>;
-export declare function equals(expected: any, outputed: any): boolean;
+export declare function equals(expected: any[], outputed: any[]): boolean;
 export declare function gettype(typename: string): any;
 export {};

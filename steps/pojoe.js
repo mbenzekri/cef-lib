@@ -55,6 +55,7 @@ function paramfunc(type, strvalue) {
 }
 let DEBUG = false;
 let COUNT = false;
+let REPORT = false;
 const SOP = 'SOP'; // Start Of Pojos
 exports.SOP = SOP;
 const EOP = 'EOP'; // End Of Pojos
@@ -75,6 +76,7 @@ class Batch {
         this._flowchart = flowchart;
         DEBUG = process.argv.some((arg) => /^--DEBUG$/i.test(arg));
         COUNT = process.argv.some((arg) => /^--COUNT$/i.test(arg));
+        REPORT = process.argv.some((arg) => /^--REPORT$/i.test(arg));
         // !!! eviter de faire des action supplementaire ici sinon valider avec Testbed 
     }
     get startdate() { return this._startdate; }
@@ -231,7 +233,7 @@ class Batch {
             yield Promise.all(promises);
             this._enddate = new Date();
             COUNT && clearInterval(timeout);
-            this.logcounts(true);
+            REPORT && this.logcounts(true);
         });
     }
 }
@@ -755,7 +757,7 @@ class TestbedInput extends Step {
     }
     process() {
         return __awaiter(this, void 0, void 0, function* () {
-            // checks equality with expected pojos 
+            // checks equality with expected pojos
             const dataval = this.params.dataforvalidation;
             for (let input in dataval) {
                 const outputed = this.result[input] || [];

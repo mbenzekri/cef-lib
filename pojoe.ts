@@ -53,6 +53,7 @@ function paramfunc(type: string, strvalue: string): Function {
 
 let DEBUG = false;
 let COUNT = false;
+let REPORT = false;
 
 const SOP = 'SOP';  // Start Of Pojos
 const EOP = 'EOP';  // End Of Pojos
@@ -81,6 +82,7 @@ class Batch {
         this._flowchart = flowchart
         DEBUG = process.argv.some((arg) => /^--DEBUG$/i.test(arg))
         COUNT = process.argv.some((arg) => /^--COUNT$/i.test(arg))
+        REPORT = process.argv.some((arg) => /^--REPORT$/i.test(arg))
         // !!! eviter de faire des action supplementaire ici sinon valider avec Testbed 
     }
     get startdate() { return this._startdate }
@@ -238,7 +240,7 @@ class Batch {
         await Promise.all(promises)
         this._enddate = new Date()
         COUNT && clearInterval(timeout)
-        this.logcounts(true)
+        REPORT && this.logcounts(true)
     }
 }
 
@@ -760,8 +762,9 @@ class TestbedInput extends Step {
     }
 
     async process() {
-        // checks equality with expected pojos 
-        const dataval = this.params.dataforvalidation
+        // checks equality with expected pojos
+
+        const dataval: any[] = this.params.dataforvalidation
         for (let input in dataval) {
             const outputed = this.result[input] || []
             const expected = dataval[input] || []

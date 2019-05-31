@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as url from 'url'
 import * as fs from 'fs';
+import * as crypto from 'crypto'
 
 export type Declaration = {
     gitid: string;
@@ -209,29 +210,21 @@ const PARAMTYPES = {
     'path': pathType,
 }
 
-export function equals(expected: any,outputed:any): boolean {
+export function equals(expected: any[],outputed:any[]): boolean {
     let result:boolean = true
-    if (Array.isArray(expected) && Array.isArray(expected)) {
-        if (expected.length !== outputed.length) return false
-        result =  expected.every((v, i) => equals(v,outputed[i]))
-    } else if (expected instanceof Url && outputed instanceof Url ) {
-        result =  expected.toString() === outputed.toString()
-    } else if (expected instanceof Path && outputed instanceof Path ) {
-        result =  expected.toString() === outputed.toString()
-    } else if (expected instanceof Date && outputed instanceof Date ) {
-        result =  expected.toString()  === outputed.toString() 
-    } else if (expected instanceof RegExp && outputed instanceof RegExp ) {
-        result =  expected.toString()  === outputed.toString() 
-    } else if (expected instanceof Object && outputed instanceof Object ) {
-        if (Object.keys(expected).length !== Object.keys(outputed).length) return false
-        result =  Object.keys(expected).every(property =>
-            equals(expected[property],outputed[property])
-        )
-    } else {
-        result = outputed === expected
-    }
+    const hexpected = expected.map(v => md5(v)).sort()
+    const houtputed = outputed.map(v => md5(v)).sort()
+    if (hexpected.length !== houtputed.length) return false
+    result =  hexpected.every( (v, i) => v === houtputed[i] )
     return result
 }
+
+function md5(value: any) {
+    const str = JSON.stringify(value)
+    let hash = crypto.createHash('md5').update(str).digest("hex")
+    return hash
+}
+
 
 export function gettype(typename: string) {
     return PARAMTYPES[typename]
