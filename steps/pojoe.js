@@ -759,14 +759,18 @@ class TestbedInput extends Step {
         return __awaiter(this, void 0, void 0, function* () {
             // checks equality with expected pojos
             const dataval = this.params.dataforvalidation;
+            const failed = [];
             for (let input in dataval) {
                 const outputed = this.result[input] || [];
                 const expected = dataval[input] || [];
                 const isequal = types_1.equals(expected, outputed);
                 if (!isequal)
-                    this.error(`test failed due to outputed data !== expected data on port "${input}"` +
-                        `\n --- EXPECTED: \n${JSON.stringify(expected, undefined, 4)} \n --- OUTPUTED: \n${JSON.stringify(outputed, undefined, 4)} \n`);
+                    failed.push(`    ==> on port "${input}"
+---------------- EXPECTED: \n${JSON.stringify(expected, undefined, 4)} 
+---------------- OUTPUTED: \n${JSON.stringify(outputed, undefined, 4)} \n`);
             }
+            if (failed.length)
+                this.error(`test failed due to outputed data !== expected data \n` + failed.join(''));
         });
     }
 }
@@ -827,6 +831,7 @@ class Testbed extends Batch {
             const fggreen = "\x1b[32m";
             const reset = "\x1b[0m";
             const results = [];
+            console.log('--- TEST STARTED ----------------------------------------------------------------------------');
             for (let i = 0; i < tests.length; i++) {
                 try {
                     const testcase = tests[i];
@@ -845,7 +850,9 @@ class Testbed extends Batch {
                 }
             }
             DEBUG = false;
+            console.log('--- TEST REPORT ----------------------------------------------------------------------------');
             results.forEach(result => console.log(result));
+            console.log('--- TEST TERMINATED -------------------------------------------------------------------------');
         });
     }
 }
