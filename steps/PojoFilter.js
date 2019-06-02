@@ -12,16 +12,19 @@ const pojoe_1 = require("./pojoe");
 const declaration = {
     gitid: 'mbenzekri/pojoe/steps/PojoFilter',
     title: 'filter pojos',
-    desc: ' filter each inputed pojo with boolean expression',
+    desc: ' filter each inputed pojo through a boolean expression',
     inputs: {
         'pojos': {
             title: 'pojo to filter'
         }
     },
     outputs: {
-        'filtered': {
+        'success': {
             title: 'filtered pojos'
-        }
+        },
+        'failure': {
+            title: 'filtered pojos'
+        },
     },
     parameters: {
         'test': {
@@ -38,8 +41,8 @@ class PojoFilter extends pojoe_1.Step {
     input(inport, pojo) {
         return __awaiter(this, void 0, void 0, function* () {
             if (inport === 'pojos') {
-                if (this.params.test)
-                    yield this.output('filtered', pojo);
+                const target = this.params.test ? 'success' : 'failure';
+                yield this.output(target, pojo);
             }
         });
     }

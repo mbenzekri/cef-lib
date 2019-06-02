@@ -7,63 +7,87 @@ const tests = [
         title: 'PojoProducer empty object',
         params: { 'pojos': "{}" },
         injected: {},
-        expected: { 'pojos': [{}] },
+        expected: {
+            pojos: [{}]
+        },
     },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
         title: 'PojoProducer no inputs',
-        params: { 'pojos': "[]" },
+        params: {
+            pojos: '[]'
+        },
         injected: {},
-        expected: { 'pojos': [] },
+        expected: {
+            pojos: []
+        },
     },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoFilter',
         title: 'PojoFilter always true (constant)',
         params: { 'test': 'true' },
-        injected: { 'pojos': [
+        injected: {
+            pojos: [
                 { a_number: 1 },
                 { a_number: 2 },
                 { a_number: 3 },
                 { a_number: 4 },
                 { a_number: 5 },
                 { a_number: 6 },
-            ] },
-        expected: { 'filtered': [
+            ]
+        },
+        expected: {
+            success: [
                 { a_number: 1 },
                 { a_number: 2 },
                 { a_number: 3 },
                 { a_number: 4 },
                 { a_number: 5 },
                 { a_number: 6 },
-            ] },
+            ],
+            failure: [],
+        },
     },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoFilter',
         title: 'PojoFilter filter some pojos',
         params: { 'test': '${pojo.a_number > 3}' },
-        injected: { 'pojos': [
+        injected: {
+            pojos: [
                 { a_number: 1 },
                 { a_number: 2 },
                 { a_number: 3 },
                 { a_number: 4 },
                 { a_number: 5 },
                 { a_number: 6 },
-            ] },
-        expected: { 'filtered': [
+            ]
+        },
+        expected: {
+            success: [
                 { a_number: 4 },
                 { a_number: 5 },
                 { a_number: 6 },
-            ] },
+            ],
+            failure: [
+                { a_number: 1 },
+                { a_number: 2 },
+                { a_number: 3 },
+            ],
+        },
     },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoLogger',
         title: 'PojoLogger simple test',
-        params: { 'test': 'Hello pojo number ${pojo.a_number}' },
-        injected: { 'pojos': [
+        params: {
+            expression: 'Hello pojo number ${pojo.a_number}'
+        },
+        injected: {
+            pojos: [
                 { a_number: 1 },
                 { a_number: 2 },
                 { a_number: 3 },
-            ] },
+            ]
+        },
         expected: {},
     },
     {
@@ -75,9 +99,15 @@ const tests = [
             'BOOL': { type: 'boolean', value: 'false', desc: '' },
             'NUM': { type: 'number', value: '2,718281821.', desc: '' },
         },
-        params: { 'pojos': '{ "string" : "${args.STR}", "int" : ${args.INT}, "bool" : ${args.BOOL}, "num" : ${args.NUM} }' },
+        params: {
+            pojos: '{ "string" : "${args.STR}", "int" : ${args.INT}, "bool" : ${args.BOOL}, "num" : ${args.NUM} }'
+        },
         injected: {},
-        expected: { 'pojos': [{ string: "Hello", int: 123, "bool": true, num: 3.14159265 }] },
+        expected: {
+            pojos: [
+                { string: "Hello", int: 123, "bool": true, num: 3.14159265 }
+            ]
+        },
     },
     {
         stepid: 'mbenzekri/pojoe/steps/PojoProducer',
@@ -88,9 +118,15 @@ const tests = [
             'BOOL': { type: 'boolean', value: 'false', desc: '' },
             'NUM': { type: 'number', value: '2.718281821.', desc: '' },
         },
-        params: { 'pojos': '{ "string" : "${globs.STR}", "int" : ${globs.INT}, "bool" : ${globs.BOOL}, "num" : ${globs.NUM}}' },
+        params: {
+            pojos: '{ "string" : "${globs.STR}", "int" : ${globs.INT}, "bool" : ${globs.BOOL}, "num" : ${globs.NUM}}'
+        },
         injected: {},
-        expected: { 'pojos': [{ string: "Bye-Bye", int: 456, "bool": false, "num": 2.718281821 }] },
+        expected: {
+            pojos: [
+                { string: "Bye-Bye", int: 456, "bool": false, "num": 2.718281821 }
+            ]
+        },
     },
 ];
 index_1.Testbed.run(tests);

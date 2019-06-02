@@ -33,7 +33,7 @@
 
 ## goal
 
-> filter each inputed pojo with boolean expression
+> filter each inputed pojo through a boolean expression
 
 ---
 ## parameters
@@ -43,7 +43,8 @@
 >- **pojos** -- pojo to filter 
 
 ## outputs
->- **filtered** -- filtered pojos 
+>- **success** -- filtered pojos 
+>- **failure** -- filtered pojos 
 
 
 ---
