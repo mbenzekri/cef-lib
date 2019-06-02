@@ -29,13 +29,19 @@ if (!pkg.config || !pkg.config.steps || !Array.isArray(pkg.config.steps)) {
 }
 const steplist = pkg.config.steps;
 steplist.forEach(name => {
-    const account = pkg.repository.url.replace(/^.*github.com\//, '').replace(/\/.*$/, '');
-    const pathtest = `${name}_spec.js`;
+    const step = `${name}.js`;
+    const test = `${name}_spec.js`;
     try {
-        require(pathtest);
+        require(step);
     }
     catch (e) {
-        console.error(`unable to require test module ${pathtest} due to ${e.message} `);
+        console.error(`unable to require step module ${step} due to ${e.message} `);
+    }
+    try {
+        require(test);
+    }
+    catch (e) {
+        console.error(`unable to require test module ${test} due to ${e.message} `);
     }
 });
 //# sourceMappingURL=pojoetest.js.map
