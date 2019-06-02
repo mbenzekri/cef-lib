@@ -35,16 +35,19 @@ async function runtest(steplist: string[], i = 0) {
         const name = steplist[i]
         const step = `${name}.js`
         const test = `${name}_spec.js`
+        const fgred = "\x1b[31m"
+        const fggreen = "\x1b[32m"
+        const reset = "\x1b[0m"
         try {
             require(step);
         } catch (e) {
-            console.error(`unable to require step module ${step} due to ${e.message} `)
+            console.error(`${fgred}FAILURE: error when requiring test spec  ${test} for step ${name} due to ${e.message} `)
             return await runtest(steplist,i+1)
         }
         try {
             await require(test);
         } catch (e) {
-            console.error(`unable to require test module ${test} due to ${e.message} `)
+            console.error(`${fgred}FAILURE: error when requiring step ${name} due to ${e.message}${reset}`)
         }
         return await runtest(steplist,i+1)
     }
