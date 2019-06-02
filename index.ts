@@ -2,6 +2,7 @@ import {Declaration, Flowchart, Testcase, Batch, Testbed, Step, ParamsMap, SOP, 
 import './PojoProducer'
 import './PojoFilter'
 import './PojoLogger'
+import './PojoAttrSelector'
 
 export {
     Declaration, Flowchart, Testcase, Batch, Testbed, Step, ParamsMap, SOP, EOP

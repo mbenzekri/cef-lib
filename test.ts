@@ -1,5 +1,4 @@
 import { Testbed, Testcase } from './index'
-import { Url, Path } from './types'
 
 const tests: Testcase[] = [
     {
@@ -127,6 +126,28 @@ const tests: Testcase[] = [
             pojos: [
                 { string: "Bye-Bye", int: 456, "bool": false, "num": 2.718281821 }
             ] 
+        },
+    },
+    {
+        stepid: 'mbenzekri/pojoe/steps/PojoAttrSelector',
+        title: 'simple properties manipulation',
+        globs: {
+        },
+        params: { 
+            rename: 'g,c',
+            copy: 'a,b,a,c,a,d',
+            remove: 'f',
+            keep: 'a,b,c,d',
+        },
+        injected: {
+            pojos: [
+                { a: 1, b: 2, g: 3, d: 4, e:5, f:6}
+            ]
+        },
+        expected: {
+            pojos: [
+                { a: 1, b: 1, c: 1, d: 1}
+            ]
         },
     },
 ]

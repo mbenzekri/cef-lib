@@ -1,4 +1,4 @@
-import { Step, Declaration, ParamsMap, EOP } from './pojoe'
+import { Step, Declaration, ParamsMap } from './pojoe'
 
 const declaration: Declaration = {
     gitid: 'mbenzekri/pojoe/steps/PojoFilter',

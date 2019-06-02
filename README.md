@@ -10,6 +10,7 @@
 >- [PojoProducer](#pojoproducer-output-a-pojo) : output a pojo
 >- [PojoFilter](#pojofilter-filter-pojos) : filter pojos
 >- [PojoLogger](#pojologger-logs-pojos) : Logs pojos
+>- [PojoAttrSelector](#pojoattrselector-alter-property-names-in-pojos) : alter property names in pojos
 # PojoProducer output a pojo
 >
 
@@ -63,6 +64,32 @@
 ## inputs
 >- **pojos** -- pojo to log 
 
+
+
+---
+
+# PojoAttrSelector alter property names in pojos
+>
+
+## goal
+
+>rename, copy, remove keep attribute in pojos
+
+---
+## parameters
+> **rename** *{string[]}* -- list of attributes to rename: old1,new1,old2,new2, ...  -- default = ``
+> 
+> **copy** *{string[]}* -- list of attributes to copy: from1,to1,from2,to2, ...  -- default = ``
+> 
+> **remove** *{string[]}* -- list of attributes to remove  -- default = ``
+> 
+> **keep** *{string[]}* -- list of attributes to keep  -- default = ``
+> 
+## inputs
+>- **pojos** -- pojo to transform 
+
+## outputs
+>- **pojos** -- altered pojos 
 
 
 ---

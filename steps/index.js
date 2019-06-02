@@ -9,4 +9,5 @@ exports.EOP = pojoe_1.EOP;
 require("./PojoProducer");
 require("./PojoFilter");
 require("./PojoLogger");
+require("./PojoAttrSelector");
 //# sourceMappingURL=index.js.map
