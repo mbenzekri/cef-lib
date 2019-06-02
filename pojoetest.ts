@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import * as fs from  'fs'
 import {Declaration, Step} from  '.'
 process.env.NODE_PATH = `${process.cwd()}/steps`;

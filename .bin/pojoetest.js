@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = require("fs");
@@ -37,4 +38,4 @@ steplist.forEach(name => {
         console.error(`unable to require test module ${pathtest} due to ${e.message} `);
     }
 });
-//# sourceMappingURL=runtest.js.map
+//# sourceMappingURL=pojoetest.js.map

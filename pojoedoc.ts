@@ -1,5 +1,6 @@
+#!/usr/bin/env node
 import * as fs from  'fs'
-import {Declaration, Step} from  '.'
+import {Declaration, Step} from  './index'
 process.env.NODE_PATH = `${process.cwd()}/steps`;
 require("module").Module._initPaths();
 

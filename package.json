@@ -15,9 +15,9 @@
     "scripts": {
         "build": "tsc",
         "pretest": "npm run doc",
-        "test": "node ./steps/runtest.js --STR=Hello  --INT=123 --BOOL=true --NUM=3.14159265 --DEBUG",
+        "test": "node ./steps/pojoetest --STR=Hello  --INT=123 --BOOL=true --NUM=3.14159265 --DEBUG",
         "predoc": "tsc",
-        "doc": "node ./steps/docgen.js"
+        "doc": "node ./steps/pojoedoc"
     },
     "repository": {
         "type": "git",

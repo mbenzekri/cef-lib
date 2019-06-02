@@ -1,7 +1,8 @@
+#!/usr/bin/env node
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = require("fs");
-const _1 = require(".");
+const index_1 = require("./index");
 process.env.NODE_PATH = `${process.cwd()}/steps`;
 require("module").Module._initPaths();
 const readme = 'README.md';
@@ -48,7 +49,7 @@ steplist.forEach(name => {
     try {
         let module = require(pathmod);
         let gitid = `${account}/${pkg.name}/steps/${name}`;
-        module = _1.Step.getstep(gitid);
+        module = index_1.Step.getstep(gitid);
         if (!module) {
             console.error(`unable to get module ${gitid} from registry `);
             process.exit(1);
@@ -143,4 +144,4 @@ steplist.forEach(name => {
 });
 fs.appendFileSync(readme, `---\n`);
 process.exit(0);
-//# sourceMappingURL=docgen.js.map
+//# sourceMappingURL=pojoedoc.js.map
