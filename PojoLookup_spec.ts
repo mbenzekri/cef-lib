@@ -92,4 +92,4 @@ const tests: Testcase[] = [
 ]
 
 
-Testbed.run(tests)
+module.exports = Testbed.run(tests)

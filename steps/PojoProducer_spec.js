@@ -61,5 +61,5 @@ const tests = [
         },
     },
 ];
-index_1.Testbed.run(tests);
+module.exports = index_1.Testbed.run(tests);
 //# sourceMappingURL=PojoProducer_spec.js.map

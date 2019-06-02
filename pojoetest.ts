@@ -30,19 +30,28 @@ if (!pkg.config || !pkg.config.steps || !Array.isArray(pkg.config.steps)) {
 }
 
 
+async function runtest(steplist: string[], i = 0) {
+    if (i < steplist.length) {
+        const name = steplist[i]
+        const step = `${name}.js`
+        const test = `${name}_spec.js`
+        try {
+            require(step);
+        } catch (e) {
+            console.error(`unable to require step module ${step} due to ${e.message} `)
+            return await runtest(steplist,i+1)
+        }
+        try {
+            await require(test);
+        } catch (e) {
+            console.error(`unable to require test module ${test} due to ${e.message} `)
+        }
+        return await runtest(steplist,i+1)
+    }
+}
+
 const steplist: string[] = pkg.config.steps
-steplist.forEach(name => {
-    const step = `${name}.js`
-    const test = `${name}_spec.js`
-    try {
-        require(step);
-    } catch (e) {
-        console.error(`unable to require step module ${step} due to ${e.message} `)
-    }
-    try {
-        require(test);
-    } catch (e) {
-        console.error(`unable to require test module ${test} due to ${e.message} `)
-    }
-})
+
+runtest(steplist)
+
 

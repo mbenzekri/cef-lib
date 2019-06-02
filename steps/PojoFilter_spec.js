@@ -56,5 +56,5 @@ const tests = [
         },
     },
 ];
-index_1.Testbed.run(tests);
+module.exports = index_1.Testbed.run(tests);
 //# sourceMappingURL=PojoFilter_spec.js.map

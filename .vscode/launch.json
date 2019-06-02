@@ -8,7 +8,7 @@
             "type": "node",
             "request": "launch",
             "name": "debug test",
-            "program": "${workspaceFolder}/steps/test.js",
+            "program": "${workspaceFolder}/steps/pojoetest.js",
             "preLaunchTask": "tsc: build - tsconfig.json",
             "cwd":"${workspaceFolder}",
             "outFiles": [

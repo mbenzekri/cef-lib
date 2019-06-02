@@ -89,5 +89,5 @@ const tests = [
         },
     },
 ];
-index_1.Testbed.run(tests);
+module.exports = index_1.Testbed.run(tests);
 //# sourceMappingURL=PojoLookup_spec.js.map

@@ -24,5 +24,5 @@ const tests = [
         },
     },
 ];
-index_1.Testbed.run(tests);
+module.exports = index_1.Testbed.run(tests);
 //# sourceMappingURL=PojoAttrSelector_spec.js.map
