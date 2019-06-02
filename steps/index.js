@@ -10,4 +10,5 @@ require("./PojoProducer");
 require("./PojoFilter");
 require("./PojoLogger");
 require("./PojoAttrSelector");
+require("./PojoLookup");
 //# sourceMappingURL=index.js.map

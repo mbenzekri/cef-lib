@@ -1,32 +1,12 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const index_1 = require("./index");
-const tests = [
+import { Testbed, Testcase } from './index'
+
+const tests: Testcase[] = [
     {
-        stepid: 'mbenzekri/pojoe/steps/PojoAttrSelector',
-        title: 'PojoAttrSelector simple properties manipulation',
-        globs: {},
-        params: {
-            rename: 'g,c',
-            copy: 'a,b,a,c,a,d',
-            remove: 'f',
-            keep: 'a,b,c,d,f',
-        },
-        injected: {
-            pojos: [
-                { a: 1, b: 2, g: 3, d: 4, e: 5, f: 6 }
-            ]
-        },
-        expected: {
-            pojos: [
-                { a: 1, b: 1, c: 1, d: 1 }
-            ]
-        },
-    }, {
         stepid: 'mbenzekri/pojoe/steps/PojoLookup',
         title: 'PojoLookup simple properties matching',
-        globs: {},
-        params: {
+        globs: {
+        },
+        params: { 
             lookupkey: '${pojo.num}',
             pojokey: '${new Date(pojo.date).getDay()}',
             multiple: 'first',
@@ -35,22 +15,22 @@ const tests = [
         },
         injected: {
             lookup: [
-                { lid: 'lundi', desc: 'jour de la lune', num: 1 },
-                { lid: 'mardi', desc: 'jour de mars', num: 2 },
-                { lid: 'mercredi', desc: 'jour de mercure', num: 3 },
-                { lid: 'jeudi', desc: ' jour de jupiter', num: 4 },
-                { lid: 'vendredi', desc: 'jour de venus', num: 5 },
-                { lid: 'samedi', desc: 'jour du shabbat', num: 6 },
-                { lid: 'dimanche', desc: 'jour du seigneur', num: 0 },
+                { lid: 'lundi', desc: 'jour de la lune', num: 1},
+                { lid: 'mardi', desc: 'jour de mars', num: 2},
+                { lid: 'mercredi', desc: 'jour de mercure', num: 3},
+                { lid: 'jeudi', desc: ' jour de jupiter', num: 4},
+                { lid: 'vendredi', desc: 'jour de venus', num: 5},
+                { lid: 'samedi', desc: 'jour du shabbat', num: 6},
+                { lid: 'dimanche', desc: 'jour du seigneur', num: 0},
             ],
             pojos: [
-                { date: new Date(2019, 5, 3), todo: 'nothing', tosee: 'Avengers: end game' },
-                { date: new Date(2019, 5, 4), todo: 'work', tosee: 'Captain Marvel' },
-                { date: new Date(2019, 5, 5), todo: 'work', tosee: 'Captain America: first Avenger' },
-                { date: new Date(2019, 5, 6), todo: 'work', tosee: 'Iron Man' },
-                { date: new Date(2019, 5, 7), todo: 'nothing', tosee: 'Ant Man' },
-                { date: new Date(2019, 5, 8), todo: 'nothing', tosee: 'Spiderman' },
-                { date: new Date(2019, 5, 9), todo: 'nothing', tosee: 'Gardian of the Galaxy' },
+                { date: new Date(2019,5,3), todo: 'nothing', tosee: 'Avengers: end game' },
+                { date: new Date(2019,5,4), todo: 'work',    tosee: 'Captain Marvel' },
+                { date: new Date(2019,5,5), todo: 'work',    tosee: 'Captain America: first Avenger' },
+                { date: new Date(2019,5,6), todo: 'work',    tosee: 'Iron Man' },
+                { date: new Date(2019,5,7), todo: 'nothing', tosee: 'Ant Man' },
+                { date: new Date(2019,5,8), todo: 'nothing', tosee: 'Spiderman' },
+                { date: new Date(2019,5,9), todo: 'nothing', tosee: 'Gardian of the Galaxy' },
             ]
         },
         expected: {
@@ -105,9 +85,11 @@ const tests = [
                     "daydesc": "jour du seigneur"
                 }
             ],
-            unmatched: []
+            unmatched: [
+            ]
         },
     },
-];
-index_1.Testbed.run(tests);
-//# sourceMappingURL=test.js.map
+]
+
+
+Testbed.run(tests)

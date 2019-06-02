@@ -11,6 +11,7 @@
 >- [PojoFilter](#pojofilter-filter-pojos) : filter pojos
 >- [PojoLogger](#pojologger-logs-pojos) : Logs pojos
 >- [PojoAttrSelector](#pojoattrselector-alter-property-names-in-pojos) : alter property names in pojos
+>- [PojoLookup](#pojolookup-transform-pojos-through-a-lookup-table) : transform pojos through a lookup table
 # PojoProducer output a pojo
 >
 
@@ -90,6 +91,36 @@
 
 ## outputs
 >- **pojos** -- altered pojos 
+
+
+---
+
+# PojoLookup transform pojos through a lookup table
+>
+
+## goal
+
+>transform pojos through a lookup table
+
+---
+## parameters
+> **lookupkey** *{string}* -- key of the lookup table   -- default = ``
+> 
+> **pojokey** *{string}* -- key to match with the lookup table key  -- default = ``
+> 
+> **multiple** *{string}* -- on multiple match what to do  -- default = `first`
+> 
+> **mode** *{string}* -- add to pojo or replace pojo  -- default = `add`
+> 
+> **changes** *{json}* -- changes to add to the pojo or to replace the pojo (see "add" parameter)  -- default = ``
+> 
+## inputs
+>- **lookup** -- pojo to form the lookup table 
+>- **pojos** -- pojo to test match 
+
+## outputs
+>- **matched** -- pojos that match the looup table 
+>- **unmatched** -- pojos that not match the looup table 
 
 
 ---

@@ -218,6 +218,7 @@ declare class Testbed extends Batch {
     static pipes(stepid: string): PipeObj[];
     static steps(stepid: string, params: ParamsMap): StepObj[];
     constructor(testcase: Testcase);
+    static header(state: string, tested: Step): void;
     static run(tests: Testcase[], debug?: boolean): Promise<void>;
 }
 export { Declaration, Flowchart, Testcase, Batch, Testbed, Step, ParamsMap, SOP, EOP };

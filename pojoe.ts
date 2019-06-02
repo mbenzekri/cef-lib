@@ -3,7 +3,6 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Declaration, Flowchart, Testcase, TestData, ParamsMap, TypedParamsMap, State, PipeObj, StepObj, OutPortsMap, InPortsMap, gettype, equals } from './types'
-import { resolve } from 'dns';
 
 function error(obj: any, message: string): boolean {
     const e = new Error()
@@ -832,34 +831,36 @@ class Testbed extends Batch {
             pipes: Testbed.pipes(testcase.stepid)
         })
     }
+    static header(state: string, tested: Step) {
+        console.log((`--- TEST ${state} ${tested.decl.gitid}---------------------------------------------------------------------------------------------------------`).substr(0,150))
+    }
+
     static async run(tests: Testcase[], debug = false) {
         const fgred = "\x1b[31m"
         const fggreen = "\x1b[32m"
         const reset = "\x1b[0m"
         const results: string[] = []
-        console.log('--- TEST STARTED ----------------------------------------------------------------------------')
+        let tested: Step
         for (let i = 0; i < tests.length; i++) {
             try {
                 const testcase = tests[i]
                 const test = new Testbed(testcase)
                 DEBUG = debug
-                let tested: Step
                 await test.run((steps: Step[]) => {
                     tested = steps.find(step => step.decl.gitid === testcase.stepid)
-                    tested && testcase.onstart && testcase.onstart(tested)
+                    testcase.onstart && testcase.onstart(tested)
                 })
                 tested && testcase.onend && testcase.onend(tested)
 
-                results.push(`${fggreen}SUCCESS: test ${tests[i].title}${reset}`);
+                results.push(`${fggreen}SUCCESS: testing ${tested.decl.gitid} for ${tests[i].title}${reset}`);
             } catch (e) {
-                results.push(`${fgred}FAILURE: test ${tests[i].title} due to => \n    ${e.message}${reset}`);
+                results.push(`${fgred}FAILURE: testing ${tested.decl.gitid} for ${tests[i].title} due to => \n    ${e.message}${reset}`);
             }
         }
         DEBUG = false
-        console.log('--- TEST REPORT ----------------------------------------------------------------------------')
         results.forEach(result => console.log(result))
-        console.log('--- TEST TERMINATED -------------------------------------------------------------------------')
     }
+
 }
 
 export {

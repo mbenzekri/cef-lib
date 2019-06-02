@@ -825,34 +825,34 @@ class Testbed extends Batch {
             pipes: Testbed.pipes(testcase.stepid)
         });
     }
+    static header(state, tested) {
+        console.log((`--- TEST ${state} ${tested.decl.gitid}---------------------------------------------------------------------------------------------------------`).substr(0, 150));
+    }
     static run(tests, debug = false) {
         return __awaiter(this, void 0, void 0, function* () {
             const fgred = "\x1b[31m";
             const fggreen = "\x1b[32m";
             const reset = "\x1b[0m";
             const results = [];
-            console.log('--- TEST STARTED ----------------------------------------------------------------------------');
+            let tested;
             for (let i = 0; i < tests.length; i++) {
                 try {
                     const testcase = tests[i];
                     const test = new Testbed(testcase);
                     DEBUG = debug;
-                    let tested;
                     yield test.run((steps) => {
                         tested = steps.find(step => step.decl.gitid === testcase.stepid);
-                        tested && testcase.onstart && testcase.onstart(tested);
+                        testcase.onstart && testcase.onstart(tested);
                     });
                     tested && testcase.onend && testcase.onend(tested);
-                    results.push(`${fggreen}SUCCESS: test ${tests[i].title}${reset}`);
+                    results.push(`${fggreen}SUCCESS: testing ${tested.decl.gitid} for ${tests[i].title}${reset}`);
                 }
                 catch (e) {
-                    results.push(`${fgred}FAILURE: test ${tests[i].title} due to => \n    ${e.message}${reset}`);
+                    results.push(`${fgred}FAILURE: testing ${tested.decl.gitid} for ${tests[i].title} due to => \n    ${e.message}${reset}`);
                 }
             }
             DEBUG = false;
-            console.log('--- TEST REPORT ----------------------------------------------------------------------------');
             results.forEach(result => console.log(result));
-            console.log('--- TEST TERMINATED -------------------------------------------------------------------------');
         });
     }
 }
