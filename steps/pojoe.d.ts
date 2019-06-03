@@ -31,7 +31,7 @@ declare class Batch {
     validate(): string[];
     private initargs;
     private initglobs;
-    private load;
+    static load(gitid: string): TypeStep;
     /**
      * method to add a step to this batch
      * @param {Step} step: a step to add to this batch

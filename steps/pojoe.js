@@ -92,7 +92,7 @@ class Batch {
         const stepmap = new Map();
         // validate parameters step 
         this._flowchart.steps.forEach(stepobj => {
-            const aclass = this.load(stepobj.gitid);
+            const aclass = Batch.load(stepobj.gitid);
             const decl = aclass.declaration;
             if (stepmap.has(stepobj.id)) {
                 errors.push(`step id "${stepobj.id}" already used in this flowchart`);
@@ -192,7 +192,7 @@ class Batch {
             },
         });
     }
-    load(gitid) {
+    static load(gitid) {
         let aclass = REGISTRY[gitid];
         if (!module) {
             // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
@@ -216,7 +216,7 @@ class Batch {
     initsteps() {
         // construct all steps 
         this._flowchart.steps.forEach(stepobj => {
-            const aclass = this.load(stepobj.gitid);
+            const aclass = Batch.load(stepobj.gitid);
             const step = new aclass(stepobj.params);
             step.initparams(this.args, this.globs);
             this._steps.set(stepobj.id, step);
@@ -883,6 +883,7 @@ class Testbed extends Batch {
             for (let i = 0; i < tests.length; i++) {
                 try {
                     const testcase = tests[i];
+                    Batch.load(testcase.stepid);
                     const test = new Testbed(testcase);
                     DEBUG = debug;
                     const errors = test.validate();
