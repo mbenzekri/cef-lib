@@ -93,6 +93,41 @@ class Batch {
     toString() { return `[Batch: ${this._flowchart.title}]`; }
     error(message: string) { error(this, message) }
 
+    public validate(): string[] {
+        const errors: string[] = []
+        const stepmap: Map<string,Declaration> = new Map()
+        // validate parameters step 
+        this._flowchart.steps.forEach(stepobj => {
+            const aclass = this.load(stepobj.gitid)
+            const decl:Declaration = aclass.declaration
+            if (stepmap.has(stepobj.id)) {
+                errors.push(`step id "${stepobj.id}" already used in this flowchart`)
+            } else {
+                stepmap.set(stepobj.id,decl) 
+            }
+            Object.keys(stepobj.params).forEach(name => decl.parameters[name] || errors.push(`step id "${stepobj.id}" parameter "${name}" doesn't exists in "${decl.gitid}"`) )
+        })
+        // validate pipe connections to steps 
+        this._flowchart.pipes.forEach(pipeobj => {
+            const fromdecl = stepmap.get(pipeobj.from)
+            const todecl = stepmap.get(pipeobj.to)
+            if (!fromdecl) {
+                errors.push(`pipe "[>>>${pipeobj.from}<<</${pipeobj.outport} ==> ${pipeobj.to}/${pipeobj.inport}]" from step not found in this flowchart`)
+            } else {
+                if (!fromdecl.outputs[pipeobj.outport]) {
+                    errors.push(`pipe "[${pipeobj.from}/>>${pipeobj.outport}<<< ==> ${pipeobj.to}/${pipeobj.inport}]" output port not found in step declaration ${fromdecl.gitid}`)
+                }
+            }
+            if (!todecl) {
+                errors.push(`pipe "[${pipeobj.from}/${pipeobj.outport} ==> >>>${pipeobj.to}<<</${pipeobj.inport}]" to step not found in this flowchart`)
+            } else {
+                if (!todecl.inputs[pipeobj.inport]) {
+                    errors.push(`pipe "[${pipeobj.from}/>>${pipeobj.outport}<<< ==> ${pipeobj.to}/${pipeobj.inport}]" input port not found in step declaration ${todecl.gitid}`)
+                }
+            }
+        })
+        return errors
+    }
     private initargs() {
         const argv: any = {};
         // default value in batch declaration
@@ -161,6 +196,22 @@ class Batch {
         });
     }
 
+    private load(gitid:string): TypeStep {
+        let aclass = REGISTRY[gitid]
+        if (!module) {
+            // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
+            const items = gitid.split('/')
+            items.shift()
+            const globpath = items.join('/')
+            try {
+                // for production mode modules install in node_modules
+                module = require(globpath)
+            } catch (e) {
+                error(this, `unable to locate step "${gitid}"  module searched with ${globpath}`)
+            }
+        }
+        return REGISTRY[gitid]
+    }
     /**
      * method to add a step to this batch
      * @param {Step} step: a step to add to this batch
@@ -168,20 +219,7 @@ class Batch {
     private initsteps() {
         // construct all steps 
         this._flowchart.steps.forEach(stepobj => {
-            let aclass = REGISTRY[stepobj.gitid]
-            if (!module) {
-                // gitid is formed : <gitaccount>/<gitrepo>/steps/<step class name>
-                const items = stepobj.gitid.split('/')
-                items.shift()
-                const globpath = items.join('/')
-                try {
-                    // for production mode modules install in node_modules
-                    module = require(globpath)
-                } catch (e) {
-                    error(this, `unable to locate step "${stepobj.gitid}"  module searched with ${globpath}`)
-                }
-            }
-            aclass = REGISTRY[stepobj.gitid]
+            const aclass = this.load(stepobj.gitid)
             const step: Step = new aclass(stepobj.params)
             step.initparams(this.args, this.globs)
             this._steps.set(stepobj.id, step)
@@ -216,6 +254,11 @@ class Batch {
     async run(stepscb?: (steps: Step[]) => void) {
         let timeout: NodeJS.Timeout
         this._startdate = new Date()
+        const errors = this.validate()
+        if (errors.length) {
+            errors.forEach(error => console.error(`FLOWCHART ERROR: ${error}`))
+        }
+
         COUNT && (timeout = setInterval(this.logcounts.bind(this) ,10000))
         DEBUG && debug(this, `Starting batch => ${this._flowchart.title} @pid: ${process.pid}`)
         DEBUG && debug(this, `initialising arguments`)
@@ -846,6 +889,10 @@ class Testbed extends Batch {
                 const testcase = tests[i]
                 const test = new Testbed(testcase)
                 DEBUG = debug
+                const errors = test.validate()
+                if (errors.length) {
+                    errors.forEach(error => results.push(`${fgred}TESTBED ERROR: ${error}${reset}`))
+                }
                 await test.run((steps: Step[]) => {
                     tested = steps.find(step => step.decl.gitid === testcase.stepid)
                     testcase.onstart && testcase.onstart(tested)

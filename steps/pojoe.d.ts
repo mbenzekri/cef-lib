@@ -28,8 +28,10 @@ declare class Batch {
     readonly args: any;
     toString(): string;
     error(message: string): void;
+    validate(): string[];
     private initargs;
     private initglobs;
+    private load;
     /**
      * method to add a step to this batch
      * @param {Step} step: a step to add to this batch
