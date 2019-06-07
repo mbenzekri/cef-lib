@@ -9,7 +9,8 @@
             "PojoFilter",
             "PojoLogger",
             "PojoAttrSelector",
-            "PojoLookup"
+            "PojoLookup",
+            "PojoTimer"
         ]
     },
     "scripts": {

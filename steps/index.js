@@ -6,9 +6,4 @@ exports.Testbed = pojoe_1.Testbed;
 exports.Step = pojoe_1.Step;
 exports.SOP = pojoe_1.SOP;
 exports.EOP = pojoe_1.EOP;
-require("./PojoProducer");
-require("./PojoFilter");
-require("./PojoLogger");
-require("./PojoAttrSelector");
-require("./PojoLookup");
 //# sourceMappingURL=index.js.map

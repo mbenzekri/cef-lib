@@ -12,6 +12,7 @@
 >- [PojoLogger](#pojologger-logs-pojos) : Logs pojos
 >- [PojoAttrSelector](#pojoattrselector-alter-property-names-in-pojos) : alter property names in pojos
 >- [PojoLookup](#pojolookup-transform-pojos-through-a-lookup-table) : transform pojos through a lookup table
+>- [PojoTimer](#pojotimer-output-a-pojo-at-timed-intervals) : output a pojo at timed intervals
 # PojoProducer output a pojo
 >
 
@@ -121,6 +122,28 @@
 ## outputs
 >- **matched** -- pojos that match the looup table 
 >- **unmatched** -- pojos that not match the looup table 
+
+
+---
+
+# PojoTimer output a pojo at timed intervals
+>
+
+## goal
+
+>this step emit pojos at a given time interval or just one after a certain time interval
+
+---
+## parameters
+> **interval** *{int}* -- interval of time in ms  -- default = `10000`
+> 
+> **repeat** *{boolean}* -- if true repeat the pojo output at each interval time  -- default = `true`
+> 
+> **pojo** *{json}* -- the outputed pojo  -- default = `{ "date": "${new Date()}" }`
+> 
+
+## outputs
+>- **pojos** -- the pojos outputed 
 
 
 ---
