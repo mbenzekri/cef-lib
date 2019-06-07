@@ -1,6 +1,6 @@
 
 # pojoe
->this is the main Pojoe (formerly Pojo Engine) library use it to develop pluggable Pojoe steps, 
+>this is the main Pojoe library use it to develop pluggable Pojoe steps, 
  this librarary provides some simple but useful steps (see below)
 # install
 
@@ -10,8 +10,9 @@
 >- [PojoProducer](#pojoproducer-output-a-pojo) : output a pojo
 >- [PojoFilter](#pojofilter-filter-pojos) : filter pojos
 >- [PojoLogger](#pojologger-logs-pojos) : Logs pojos
->- [PojoAttrSelector](#pojoattrselector-alter-property-names-in-pojos) : alter property names in pojos
+>- [PojoAlter](#pojoalter-alter-property-names-in-pojos) : alter property names in pojos
 >- [PojoLookup](#pojolookup-transform-pojos-through-a-lookup-table) : transform pojos through a lookup table
+>- [PojoExec](#pojoexec-execute-an-os-command) : execute an os command
 >- [PojoTimer](#pojotimer-output-a-pojo-at-timed-intervals) : output a pojo at timed intervals
 # PojoProducer output a pojo
 >
@@ -70,7 +71,7 @@
 
 ---
 
-# PojoAttrSelector alter property names in pojos
+# PojoAlter alter property names in pojos
 >
 
 ## goal
@@ -122,6 +123,41 @@
 ## outputs
 >- **matched** -- pojos that match the looup table 
 >- **unmatched** -- pojos that not match the looup table 
+
+
+---
+
+# PojoExec execute an os command
+>
+
+## goal
+
+> execute a given command on the hosted OS and return sdtout/stderr in pojo properties
+
+---
+## parameters
+> **command** *{string}* -- command expression to execute  -- default = `echo hello world !`
+> 
+> **directory** *{string}* -- Current working directory  -- default = `.`
+> 
+> **env** *{json}* -- Environnement variables  -- default = `{}`
+> 
+> **timeout** *{int}* -- max execution time in milliseconds (0 = infinite)  -- default = `0`
+> 
+## inputs
+>- **pojos** -- pojos with needed data to construct the command 
+
+## outputs
+>- **success** -- on success outputed data 
+>> provided properties: 
+>>- **stdio** *{string}* -- collected stdio output
+>>- **stderr** *{string}* -- collected stderr output
+>- **failed** -- on failure outputed data 
+>> provided properties: 
+>>- **error** *{string}* -- error reason
+>>- **exitcode** *{int}* -- exit code of the command
+>>- **stdio** *{string}* -- collected stdio output
+>>- **stderr** *{string}* -- collected stderr output
 
 
 ---

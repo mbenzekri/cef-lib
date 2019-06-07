@@ -1,15 +1,16 @@
 {
     "name": "pojoe",
     "version": "1.0.0",
-    "description": "this is the main Pojoe (formerly Pojo Engine) library use it to develop pluggable Pojoe steps, \n this librarary provides some simple but useful steps (see below)",
+    "description": "this is the main Pojoe library use it to develop pluggable Pojoe steps, \n this librarary provides some simple but useful steps (see below)",
     "main": "node ./test.js",
     "config": {
         "steps": [
             "PojoProducer",
             "PojoFilter",
             "PojoLogger",
-            "PojoAttrSelector",
+            "PojoAlter",
             "PojoLookup",
+            "PojoExec",
             "PojoTimer"
         ]
     },

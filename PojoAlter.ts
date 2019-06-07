@@ -1,7 +1,7 @@
 import { Step, Declaration, ParamsMap, EOP } from './pojoe'
 
 const declaration: Declaration = {
-    gitid: 'mbenzekri/pojoe/steps/PojoAttrSelector',
+    gitid: 'mbenzekri/pojoe/steps/PojoAlter',
     title: 'alter property names in pojos',
     desc: 'rename, copy, remove keep attribute in pojos',
     inputs: {
@@ -38,7 +38,7 @@ const declaration: Declaration = {
     }
 }
 
-export class PojoAttrSelector extends Step {
+export class PojoAlter extends Step {
     static readonly declaration = declaration
     private renmap = {}
     private copylist:[string,string][] = []
@@ -85,5 +85,5 @@ export class PojoAttrSelector extends Step {
     }
 }
 
-Step.register(PojoAttrSelector);
+Step.register(PojoAlter);
 

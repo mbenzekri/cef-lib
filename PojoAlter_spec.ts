@@ -2,8 +2,8 @@ import { Testbed, Testcase } from './index'
 
 const tests: Testcase[] = [
     {
-        stepid: 'mbenzekri/pojoe/steps/PojoAttrSelector',
-        title: 'PojoAttrSelector simple properties manipulation',
+        stepid: 'mbenzekri/pojoe/steps/PojoAlter',
+        title: 'PojoAlter simple properties manipulation',
         globs: {
         },
         params: { 
