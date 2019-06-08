@@ -560,7 +560,6 @@ class Step {
         this.id = uuid();
         this._inports = {};
         this._outports = {};
-        this._state = types_1.State.idle;
         this._params = {};
         this.decl = decl;
         Object.keys(decl.inputs).forEach(name => this._inports[name] = new InputPort(name, this));
@@ -612,15 +611,11 @@ class Step {
             // default method do nothing
         });
     }
-    get pojo() { return this.pojo; }
     get startdate() { return this._startdate; }
     get enddate() { return this._enddate; }
     get type() { return this.decl.gitid; }
     get paramlist() { return Object.keys(this.decl.parameters); }
     get params() { return this._params; }
-    get isidle() { return this._state === types_1.State.idle; }
-    get isstarted() { return this._state === types_1.State.started; }
-    get isended() { return this._state === types_1.State.ended; }
     get inports() { return Object['values'](this._inports); }
     get outports() { return Object['values'](this._outports); }
     get isinitial() { return this.inports.length === 0; }

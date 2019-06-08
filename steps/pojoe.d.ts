@@ -127,7 +127,6 @@ declare abstract class Step {
     private _inports;
     private _outports;
     private _pojo;
-    private _state;
     private _params;
     /**
      * start() method may be implemented by heriting classes
@@ -157,15 +156,11 @@ declare abstract class Step {
      * @param batch the batch containing this step
      */
     protected constructor(decl: Declaration, params: ParamsMap);
-    readonly pojo: any;
     readonly startdate: Date;
     readonly enddate: Date;
     readonly type: string;
     readonly paramlist: string[];
     readonly params: any;
-    readonly isidle: boolean;
-    readonly isstarted: boolean;
-    readonly isended: boolean;
     readonly inports: InputPort[];
     readonly outports: OutputPort[];
     readonly isinitial: boolean;

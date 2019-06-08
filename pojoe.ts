@@ -567,7 +567,6 @@ abstract class Step {
     private _inports: { [key: string]: InputPort } = {}
     private _outports: { [key: string]: OutputPort } = {}
     private _pojo: any
-    private _state = State.idle
     private _params: any = {}
 
     /**
@@ -618,15 +617,11 @@ abstract class Step {
         Object.keys(decl.outputs).forEach(name => this._outports[name] = new OutputPort(name, this))
         this._params = params;
     }
-    get pojo() { return this.pojo }
     get startdate() { return this._startdate }
     get enddate() { return this._enddate }
     get type() { return this.decl.gitid }
     get paramlist() { return Object.keys(this.decl.parameters) }
     get params(): any { return this._params }
-    get isidle(): boolean { return this._state === State.idle }
-    get isstarted(): boolean { return this._state === State.started }
-    get isended(): boolean { return this._state === State.ended }
     get inports(): InputPort[] { return Object['values'](this._inports) }
     get outports(): OutputPort[] { return Object['values'](this._outports) }
     get isinitial() { return this.inports.length === 0 }
