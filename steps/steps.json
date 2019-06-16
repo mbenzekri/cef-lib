@@ -1,0 +1,256 @@
+[
+
+{
+    "gitid": "mbenzekri/pojoe/steps/PojoProducer",
+    "title": "output a pojo",
+    "desc": "this step emit one pojo provided in a parameter object literal expression",
+    "inputs": {},
+    "outputs": {
+        "pojos": {
+            "title": "the pojos outputed"
+        }
+    },
+    "parameters": {
+        "pojos": {
+            "title": "a json object or array literal",
+            "type": "json",
+            "default": "[ { \"num\" : 1 },{ \"num\" : 2 },{ \"num\" : 3 } ]"
+        }
+    }
+},
+{
+    "gitid": "mbenzekri/pojoe/steps/PojoFilter",
+    "title": "filter pojos",
+    "desc": " filter each inputed pojo through a boolean expression",
+    "inputs": {
+        "pojos": {
+            "title": "pojo to filter"
+        }
+    },
+    "outputs": {
+        "success": {
+            "title": "filtered pojos"
+        },
+        "failure": {
+            "title": "filtered pojos"
+        }
+    },
+    "parameters": {
+        "test": {
+            "title": "filter expression",
+            "type": "boolean",
+            "default": "true"
+        }
+    }
+},
+{
+    "gitid": "mbenzekri/pojoe/steps/PojoLogger",
+    "title": "Logs pojos",
+    "desc": " logs each inputed pojo through console",
+    "inputs": {
+        "pojos": {
+            "title": "pojo to log"
+        }
+    },
+    "outputs": {},
+    "parameters": {
+        "expression": {
+            "title": "expression to log",
+            "type": "string",
+            "default": "${JSON.stringify(pojo)}"
+        }
+    }
+},
+{
+    "gitid": "mbenzekri/pojoe/steps/PojoAlter",
+    "title": "alter property names in pojos",
+    "desc": "rename, copy, remove keep attribute in pojos",
+    "inputs": {
+        "pojos": {
+            "title": "pojo to transform"
+        }
+    },
+    "outputs": {
+        "pojos": {
+            "title": "altered pojos"
+        }
+    },
+    "parameters": {
+        "rename": {
+            "title": "list of attributes to rename: old1,new1,old2,new2, ...",
+            "type": "string[]",
+            "default": ""
+        },
+        "copy": {
+            "title": "list of attributes to copy: from1,to1,from2,to2, ...",
+            "type": "string[]",
+            "default": ""
+        },
+        "remove": {
+            "title": "list of attributes to remove",
+            "type": "string[]",
+            "default": ""
+        },
+        "keep": {
+            "title": "list of attributes to keep",
+            "type": "string[]",
+            "default": ""
+        }
+    }
+},
+{
+    "gitid": "mbenzekri/pojoe/steps/PojoLookup",
+    "title": "transform pojos through a lookup table",
+    "desc": "transform pojos through a lookup table",
+    "inputs": {
+        "lookup": {
+            "title": "pojo to form the lookup table"
+        },
+        "pojos": {
+            "title": "pojo to test match"
+        }
+    },
+    "outputs": {
+        "matched": {
+            "title": "pojos that match the looup table"
+        },
+        "unmatched": {
+            "title": "pojos that not match the looup table"
+        }
+    },
+    "parameters": {
+        "lookupkey": {
+            "title": "key of the lookup table ",
+            "type": "string",
+            "default": ""
+        },
+        "pojokey": {
+            "title": "key to match with the lookup table key",
+            "type": "string",
+            "default": ""
+        },
+        "multiple": {
+            "title": "on multiple match what to do",
+            "desc": "\"multiple\" options indicates to PojoLookup how to handle multiple math found on lookup\n   - first : return one pojo on first match\n   - last : return one pojo on last match\n   - all : return all matched pojo\n   - unmatch : consider pojo is unmatched when multiple match (more than one)",
+            "type": "string",
+            "default": "first",
+            "enum": {
+                "first": "first",
+                "last": "last",
+                "all": "all",
+                "unmatch": "unmatch"
+            }
+        },
+        "mode": {
+            "title": "add to pojo or replace pojo",
+            "desc": "\"mode\" options indicates to PojoLookup how is constructed the matched pojo\n   - add : add all properties found in \"pojo\" provided parameter to input pojo\n   - replace : only pojo provided by \"pojo\" parameter is outputed through \"matched\" port",
+            "type": "string",
+            "default": "add",
+            "enum": {
+                "add": "add",
+                "replace": "replace"
+            }
+        },
+        "changes": {
+            "title": "changes to add to the pojo or to replace the pojo (see \"add\" parameter)",
+            "type": "json",
+            "default": ""
+        }
+    }
+},
+{
+    "gitid": "mbenzekri/pojoe/steps/PojoExec",
+    "title": "execute an os command",
+    "desc": " execute a given command on the hosted OS and return sdtout/stderr in pojo properties",
+    "inputs": {
+        "pojos": {
+            "title": "pojos with needed data to construct the command"
+        }
+    },
+    "outputs": {
+        "success": {
+            "title": "on success outputed data",
+            "properties": {
+                "stdio": {
+                    "type": "string",
+                    "title": "collected stdio output"
+                },
+                "stderr": {
+                    "type": "string",
+                    "title": "collected stderr output"
+                }
+            }
+        },
+        "failed": {
+            "title": "on failure outputed data",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "title": "error reason"
+                },
+                "exitcode": {
+                    "type": "int",
+                    "title": "exit code of the command"
+                },
+                "stdio": {
+                    "type": "string",
+                    "title": "collected stdio output"
+                },
+                "stderr": {
+                    "type": "string",
+                    "title": "collected stderr output"
+                }
+            }
+        }
+    },
+    "parameters": {
+        "command": {
+            "title": "command expression to execute",
+            "type": "string",
+            "default": "echo hello world !"
+        },
+        "directory": {
+            "title": "Current working directory",
+            "type": "string",
+            "default": "."
+        },
+        "env": {
+            "title": "Environnement variables",
+            "type": "json",
+            "default": "{}"
+        },
+        "timeout": {
+            "title": "max execution time in milliseconds (0 = infinite)",
+            "type": "int",
+            "default": "0"
+        }
+    }
+},
+{
+    "gitid": "mbenzekri/pojoe/steps/PojoTimer",
+    "title": "output a pojo at timed intervals",
+    "desc": "this step emit pojos at a given time interval or just one after a certain time interval",
+    "inputs": {},
+    "outputs": {
+        "pojos": {
+            "title": "the pojos outputed"
+        }
+    },
+    "parameters": {
+        "interval": {
+            "title": "interval of time in ms",
+            "type": "int",
+            "default": "10000"
+        },
+        "repeat": {
+            "title": "if true repeat the pojo output at each interval time",
+            "type": "boolean",
+            "default": "true"
+        },
+        "pojo": {
+            "title": "the outputed pojo",
+            "type": "json",
+            "default": "{ \"date\": \"${new Date()}\" }"
+        }
+    }
+}]

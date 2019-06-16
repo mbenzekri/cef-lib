@@ -143,5 +143,15 @@ steplist.forEach(name => {
     //fs.appendFileSync(readme,`\n</detail>\n`)
 });
 fs.appendFileSync(readme, `---\n`);
+const jsonfile = './steps/steps.json';
+let sep = '\n';
+fs.writeFileSync(jsonfile, '[\n');
+steplist.forEach(name => {
+    const decl = decls[name];
+    fs.appendFileSync(jsonfile, sep);
+    fs.appendFileSync(jsonfile, JSON.stringify(decl, undefined, 4));
+    sep = ',\n';
+});
+fs.appendFileSync(jsonfile, ']\n');
 process.exit(0);
 //# sourceMappingURL=pojoedoc.js.map
