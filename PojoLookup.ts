@@ -59,7 +59,7 @@ const declaration: Declaration = {
     }
 }
 
-export class PojoLookup extends Step {
+class PojoLookup extends Step {
     static readonly declaration = declaration
     private mode = 'add'
     private multiple = 'first'

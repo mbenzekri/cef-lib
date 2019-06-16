@@ -95,6 +95,5 @@ class PojoAlter extends pojoe_1.Step {
     }
 }
 PojoAlter.declaration = declaration;
-exports.PojoAlter = PojoAlter;
 pojoe_1.Step.register(PojoAlter);
 //# sourceMappingURL=PojoAlter.js.map

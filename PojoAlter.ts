@@ -38,7 +38,7 @@ const declaration: Declaration = {
     }
 }
 
-export class PojoAlter extends Step {
+class PojoAlter extends Step {
     static readonly declaration = declaration
     private renmap = {}
     private copylist:[string,string][] = []

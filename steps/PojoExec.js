@@ -98,6 +98,5 @@ class PojoExec extends pojoe_1.Step {
     }
 }
 PojoExec.declaration = declaration;
-exports.PojoExec = PojoExec;
 pojoe_1.Step.register(PojoExec);
 //# sourceMappingURL=PojoExec.js.map

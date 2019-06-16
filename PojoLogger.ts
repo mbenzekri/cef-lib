@@ -20,7 +20,7 @@ const declaration: Declaration = {
     }
 }
 
-export class PojoLogger extends Step {
+class PojoLogger extends Step {
     static readonly declaration = declaration
     constructor(params: ParamsMap) {
         super(declaration, params)

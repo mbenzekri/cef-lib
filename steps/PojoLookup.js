@@ -122,6 +122,5 @@ class PojoLookup extends pojoe_1.Step {
     }
 }
 PojoLookup.declaration = declaration;
-exports.PojoLookup = PojoLookup;
 pojoe_1.Step.register(PojoLookup);
 //# sourceMappingURL=PojoLookup.js.map

@@ -48,6 +48,5 @@ class PojoFilter extends pojoe_1.Step {
     }
 }
 PojoFilter.declaration = declaration;
-exports.PojoFilter = PojoFilter;
 pojoe_1.Step.register(PojoFilter);
 //# sourceMappingURL=PojoFilter.js.map

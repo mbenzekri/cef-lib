@@ -26,7 +26,7 @@ const declaration: Declaration = {
     }
 }
 
-export class PojoFilter extends Step {
+class PojoFilter extends Step {
     static readonly declaration = declaration
     constructor (params: ParamsMap) {
         super(declaration, params)
